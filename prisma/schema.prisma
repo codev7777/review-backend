@@ -20,7 +20,144 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   Token           Token[]
+  companyId   Int?
+  company     Company?   @relation(fields: [companyId], references: [id])
 }
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// User table
+// model User {
+//   companyId   Int?
+//   company     Company?   @relation(fields: [companyId], references: [id])
+//   Campaigns   Campaign[]
+//   Reviews     Review[]
+// }
+ 
+
+// Company table
+model Company {
+  id          Int        @id @default(autoincrement())
+  name        String
+  detail      String?
+  logo        String?
+  websiteUrl  String?
+  planId      Int
+  ratio       Float
+  reviews     Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  Users       User[]
+  Campaigns   Campaign[]
+  Products    Product[]
+  Plan        Plan       @relation(fields: [planId], references: [id])
+}
+
+enum CompanyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// Campaign table
+model Campaign {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String
+  startDate   DateTime
+  endDate     DateTime
+  status      CampaignStatus
+  value       Float
+  companyId   Int
+  company     Company    @relation(fields: [companyId], references: [id])
+  Products    Product[]
+  Reviews     Review[]
+}
+
+enum CampaignStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// Product table
+model Product {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String
+  image       String
+  companyId   Int
+  campaignId  Int
+  ratio       Float
+  company     Company    @relation(fields: [companyId], references: [id])
+  campaign    Campaign   @relation(fields: [campaignId], references: [id])
+  Reviews     Review[]
+}
+
+// Review table
+model Review {
+  id          Int        @id @default(autoincrement())
+  email       String
+  name        String
+  productId   Int
+  campaignId  Int
+  ratio       Float
+  feedback    String
+  marketplace String
+  customerId  Int
+  Product     Product    @relation(fields: [productId], references: [id])
+  Campaign    Campaign   @relation(fields: [campaignId], references: [id])
+  Customer    Customer   @relation(fields: [customerId], references: [id])
+}
+
+enum Marketplace {
+  AMAZON
+  EBAY
+  ETSY
+  OTHER
+}
+
+// Customer table
+model Customer {
+  id          Int        @id @default(autoincrement())
+  email       String     @unique
+  name        String
+  reviews     Int
+  ratio       Float
+  Reviews     Review[]
+}
+
+// Plan table (Subscription Plan)
+model Plan {
+  id          Int        @id @default(autoincrement())
+  name        String
+  price       Float
+  description String?
+  planType    PlanType   @default(BASIC)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  Companies   Company[]
+}
+
+enum PlanType {
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+
+
+
+
+
+
+
+
+
+
 
 model Token {
   id          Int       @id @default(autoincrement())
@@ -29,14 +166,10 @@ model Token {
   expires     DateTime
   blacklisted Boolean
   createdAt   DateTime  @default(now())
-  user        User      @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId      Int
 }
 
-enum Role {
-  USER
-  ADMIN
-}
 
 enum TokenType {
   ACCESS

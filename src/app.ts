@@ -36,7 +36,15 @@ app.use(xss());
 app.use(compression());
 
 // enable cors
-app.use(cors());
+app.use(
+  cors({
+    origin: 'http://localhost:8080',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+    credentials: true, // Allow cookies/token
+    maxAge: 86400 // ✅ Cache preflight for 24 hours
+  })
+);
 app.options('*', cors());
 
 // jwt authentication

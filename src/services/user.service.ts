@@ -15,9 +15,16 @@ const createUser = async (
   name?: string,
   role: Role = Role.USER
 ): Promise<User> => {
+  if (password.length < 8) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      'Password length must be at least 8 characters long'
+    );
+  }
   if (await getUserByEmail(email)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
   }
+
   return prisma.user.create({
     data: {
       email,
@@ -52,6 +59,7 @@ const queryUsers = async <Key extends keyof User>(
     'password',
     'role',
     'isEmailVerified',
+    'companyId',
     'createdAt',
     'updatedAt'
   ] as Key[]
@@ -88,6 +96,7 @@ const getUserById = async <Key extends keyof User>(
     'password',
     'role',
     'isEmailVerified',
+    'companyId',
     'createdAt',
     'updatedAt'
   ] as Key[]
@@ -113,6 +122,7 @@ const getUserByEmail = async <Key extends keyof User>(
     'password',
     'role',
     'isEmailVerified',
+    'companyId',
     'createdAt',
     'updatedAt'
   ] as Key[]

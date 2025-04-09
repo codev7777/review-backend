@@ -3,15 +3,24 @@ import { password } from './custom.validation';
 
 const register = {
   body: Joi.object().keys({
+    name: Joi.string(),
     email: Joi.string().required().email(),
-    password: Joi.string().required().custom(password)
+    password: Joi.string()
+      .min(8)
+      .message('Password length must be at least 8 characters long')
+      .pattern(/[A-Za-z]/) // Requires at least one letter
+      .message('Password must contain at least one letter')
+      .pattern(/\d/) // Requires at least one number
+      .message('Password must contain at least one number')
+      .required()
   })
 };
 
 const login = {
   body: Joi.object().keys({
     email: Joi.string().required(),
-    password: Joi.string().required()
+    password: Joi.string().required(),
+    recaptchaToken: Joi.string().required()
   })
 };
 
