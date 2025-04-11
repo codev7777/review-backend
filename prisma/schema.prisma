@@ -45,15 +45,15 @@ model Company {
   detail      String?
   logo        String?
   websiteUrl  String?
-  planId      Int
-  ratio       Float
-  reviews     Int
+  planId      Int?
+  ratio       Float?  @default( 0)
+  reviews     Int?  @default(0)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   Users       User[]
   Campaigns   Campaign[]
   Products    Product[]
-  Plan        Plan       @relation(fields: [planId], references: [id])
+  Plan        Plan?       @relation(fields: [planId], references: [id])
 }
 
 enum CompanyStatus {
@@ -114,10 +114,27 @@ model Review {
 }
 
 enum Marketplace {
-  AMAZON
-  EBAY
-  ETSY
-  OTHER
+  US
+  CA
+  MX
+  GB
+  FR
+  DE
+  IT
+  ES
+  IN
+  JP
+  NL
+  SE
+  AU
+  BR
+  SG
+  TR
+  SA
+  AE
+  PL
+  EG
+  ZA
 }
 
 // Customer table
@@ -136,16 +153,16 @@ model Plan {
   name        String
   price       Float
   description String?
-  planType    PlanType   @default(BASIC)
+  planType    PlanType   @default(GOLD)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   Companies   Company[]
 }
 
 enum PlanType {
-  BASIC
-  PREMIUM
-  ENTERPRISE
+  SILVER
+  GOLD
+  PLATINUM
 }
 
 

@@ -10,7 +10,7 @@ const router = express.Router();
 router.post('/register', validate(authValidation.register), authController.register);
 router.post(
   '/login',
-  verifyRecaptcha, // 👈 Middleware runs before validation and controller
+  // verifyRecaptcha,
   validate(authValidation.login),
   authController.login
 );
