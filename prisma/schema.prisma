@@ -36,6 +36,7 @@ model Company {
   Products   Product[]
   Promotions Promotion[]
   Users      User[]
+  campaigns  Campaign[]
 }
 
 model Category {
@@ -52,12 +53,16 @@ model Product {
   title       String
   description String
   image       String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId   Int
   ratio       Float    @default(0)
   categoryId  Int
   category    Category @relation(fields: [categoryId], references: [id])
-  company     Company  @relation(fields: [companyId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   Reviews     Review[]
+  Campaigns   Campaign[]
+  @@index([companyId])
 }
 
 model Review {
@@ -99,10 +104,12 @@ model Promotion {
   image         String
   promotionType PromotionType
   description   String
+  company       Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId     Int
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-  company       Company       @relation(fields: [companyId], references: [id])
+  Campaigns     Campaign[]
+  @@index([companyId])
 }
 
 model Token {
@@ -168,4 +175,28 @@ enum TokenType {
   REFRESH
   RESET_PASSWORD
   VERIFY_EMAIL
+}
+
+enum CampaignStatus {
+  YES
+  NO
+}
+
+model Campaign {
+  id          Int       @id @default(autoincrement())
+  title       String
+  isActive    CampaignStatus @default(YES)
+  promotion   Promotion @relation(fields: [promotionId], references: [id])
+  promotionId Int
+  products    Product[]
+  marketplaces Marketplace[]
+  claims      Int       @default(0)
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId   Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  productIds  Int[]
+
+  @@index([companyId])
+  @@index([promotionId])
 }

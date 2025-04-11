@@ -7,6 +7,7 @@ import docsRoute from './docs.route';
 import config from '../../config/config';
 import productRoute from './product.route';
 import promotionRoute from './promotion.route';
+import campaignRoute from './campaign.route';
 
 const router = express.Router();
 
@@ -34,6 +35,10 @@ const defaultRoutes = [
   {
     path: '/promotions',
     route: promotionRoute
+  },
+  {
+    path: '/campaigns',
+    route: campaignRoute
   }
 ];
 

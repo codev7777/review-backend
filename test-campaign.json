@@ -1,0 +1,9 @@
+{
+  "title": "Summer Sale Campaign",
+  "isActive": "YES",
+  "promotionId": 1,
+  "productIds": "1,2,3",
+  "marketplaces": "US,CA,GB",
+  "claims": 0,
+  "companyId": 1
+}
