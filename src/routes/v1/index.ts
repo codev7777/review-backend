@@ -2,8 +2,11 @@ import express from 'express';
 import authRoute from './auth.route';
 import userRoute from './user.route';
 import companyRoute from './company.route';
+import categoryRoute from './category.route';
 import docsRoute from './docs.route';
 import config from '../../config/config';
+import productRoute from './product.route';
+import promotionRoute from './promotion.route';
 
 const router = express.Router();
 
@@ -19,6 +22,18 @@ const defaultRoutes = [
   {
     path: '/companies',
     route: companyRoute
+  },
+  {
+    path: '/categories',
+    route: categoryRoute
+  },
+  {
+    path: '/products',
+    route: productRoute
+  },
+  {
+    path: '/promotions',
+    route: promotionRoute
   }
 ];
 

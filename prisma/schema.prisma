@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -19,9 +16,104 @@ model User {
   isEmailVerified Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  companyId       Int?
   Token           Token[]
-  companyId   Int?
-  company     Company?   @relation(fields: [companyId], references: [id])
+  company         Company? @relation(fields: [companyId], references: [id])
+}
+
+model Company {
+  id         Int         @id @default(autoincrement())
+  name       String
+  detail     String?
+  logo       String?
+  websiteUrl String?
+  planId     Int?
+  ratio      Float?      @default(0)
+  reviews    Int?        @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  Plan       Plan?       @relation(fields: [planId], references: [id])
+  Products   Product[]
+  Promotions Promotion[]
+  Users      User[]
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  Products    Product[]
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  image       String
+  companyId   Int
+  ratio       Float    @default(0)
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id])
+  company     Company  @relation(fields: [companyId], references: [id])
+  Reviews     Review[]
+}
+
+model Review {
+  id          Int      @id @default(autoincrement())
+  email       String
+  name        String
+  productId   Int
+  ratio       Float
+  feedback    String
+  marketplace String
+  customerId  Int
+  Customer    Customer @relation(fields: [customerId], references: [id])
+  Product     Product  @relation(fields: [productId], references: [id])
+}
+
+model Customer {
+  id      Int      @id @default(autoincrement())
+  email   String   @unique
+  name    String
+  reviews Int
+  ratio   Float
+  Reviews Review[]
+}
+
+model Plan {
+  id          Int       @id @default(autoincrement())
+  name        String
+  price       Float
+  description String?
+  planType    PlanType  @default(GOLD)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  Companies   Company[]
+}
+
+model Promotion {
+  id            Int           @id @default(autoincrement())
+  title         String
+  image         String
+  promotionType PromotionType
+  description   String
+  companyId     Int
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  company       Company       @relation(fields: [companyId], references: [id])
+}
+
+model Token {
+  id          Int       @id @default(autoincrement())
+  token       String
+  type        TokenType
+  expires     DateTime
+  blacklisted Boolean
+  createdAt   DateTime  @default(now())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum Role {
@@ -29,88 +121,9 @@ enum Role {
   ADMIN
 }
 
-// User table
-// model User {
-//   companyId   Int?
-//   company     Company?   @relation(fields: [companyId], references: [id])
-//   Campaigns   Campaign[]
-//   Reviews     Review[]
-// }
- 
-
-// Company table
-model Company {
-  id          Int        @id @default(autoincrement())
-  name        String
-  detail      String?
-  logo        String?
-  websiteUrl  String?
-  planId      Int?
-  ratio       Float?  @default( 0)
-  reviews     Int?  @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  Users       User[]
-  Campaigns   Campaign[]
-  Products    Product[]
-  Plan        Plan?       @relation(fields: [planId], references: [id])
-}
-
 enum CompanyStatus {
   ACTIVE
   INACTIVE
-}
-
-// Campaign table
-model Campaign {
-  id          Int        @id @default(autoincrement())
-  title       String
-  description String
-  startDate   DateTime
-  endDate     DateTime
-  status      CampaignStatus
-  value       Float
-  companyId   Int
-  company     Company    @relation(fields: [companyId], references: [id])
-  Products    Product[]
-  Reviews     Review[]
-}
-
-enum CampaignStatus {
-  PENDING
-  ACTIVE
-  COMPLETED
-  CANCELLED
-}
-
-// Product table
-model Product {
-  id          Int        @id @default(autoincrement())
-  title       String
-  description String
-  image       String
-  companyId   Int
-  campaignId  Int
-  ratio       Float
-  company     Company    @relation(fields: [companyId], references: [id])
-  campaign    Campaign   @relation(fields: [campaignId], references: [id])
-  Reviews     Review[]
-}
-
-// Review table
-model Review {
-  id          Int        @id @default(autoincrement())
-  email       String
-  name        String
-  productId   Int
-  campaignId  Int
-  ratio       Float
-  feedback    String
-  marketplace String
-  customerId  Int
-  Product     Product    @relation(fields: [productId], references: [id])
-  Campaign    Campaign   @relation(fields: [campaignId], references: [id])
-  Customer    Customer   @relation(fields: [customerId], references: [id])
 }
 
 enum Marketplace {
@@ -137,56 +150,18 @@ enum Marketplace {
   ZA
 }
 
-// Customer table
-model Customer {
-  id          Int        @id @default(autoincrement())
-  email       String     @unique
-  name        String
-  reviews     Int
-  ratio       Float
-  Reviews     Review[]
-}
-
-// Plan table (Subscription Plan)
-model Plan {
-  id          Int        @id @default(autoincrement())
-  name        String
-  price       Float
-  description String?
-  planType    PlanType   @default(GOLD)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  Companies   Company[]
-}
-
 enum PlanType {
   SILVER
   GOLD
   PLATINUM
 }
 
-
-
-
-
-
-
-
-
-
-
-
-model Token {
-  id          Int       @id @default(autoincrement())
-  token       String
-  type        TokenType
-  expires     DateTime
-  blacklisted Boolean
-  createdAt   DateTime  @default(now())
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      Int
+enum PromotionType {
+  GIFT_CARD
+  DISCOUNT_CODE
+  FREE_PRODUCT
+  DIGITAL_DOWNLOAD
 }
-
 
 enum TokenType {
   ACCESS

@@ -71,6 +71,7 @@ cp .env.example .env
 - **Git hooks**: with [Husky](https://github.com/typicode/husky) and [lint-staged](https://github.com/okonet/lint-staged)
 - **Linting**: with [ESLint](https://eslint.org) and [Prettier](https://prettier.io)
 - **Editor config**: consistent editor configuration using [EditorConfig](https://editorconfig.org)
+- **Auto-increment port**: automatically finds an available port if the default port is in use
 
 ## Commands
 
@@ -149,8 +150,9 @@ yarn prettier:fix
 The environment variables can be found and modified in the `.env` file. They come with these default values:
 
 ```bash
-# Port number
-PORT=3000
+# App
+NODE_ENV=development
+PORT=3000  # Default port, will auto-increment if in use
 
 # URL of the PostgreSQL database
 DATABASE_URL=postgresql://postgres:secret@localhost:5432/mydb?schema=public
@@ -162,14 +164,16 @@ JWT_SECRET=thisisasamplesecret
 JWT_ACCESS_EXPIRATION_MINUTES=30
 # Number of days after which a refresh token expires
 JWT_REFRESH_EXPIRATION_DAYS=30
+JWT_RESET_PASSWORD_EXPIRATION_MINUTES=10
+JWT_VERIFY_EMAIL_EXPIRATION_MINUTES=10
 
 # SMTP configuration options for the email service
 # For testing, you can use a fake SMTP service like Ethereal: https://ethereal.email/create
-SMTP_HOST=email-server
+SMTP_HOST=smtp.example.com
 SMTP_PORT=587
-SMTP_USERNAME=email-server-username
-SMTP_PASSWORD=email-server-password
-EMAIL_FROM=support@yourapp.com
+SMTP_USERNAME=your_username
+SMTP_PASSWORD=your_password
+EMAIL_FROM=noreply@example.com
 ```
 
 ## Project Structure
