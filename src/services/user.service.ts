@@ -25,12 +25,26 @@ const createUser = async (
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
   }
 
+  // Create a new company for the user
+  const company = await prisma.company.create({
+    data: {
+      name: name ? `${name}'s Company` : `New Company`,
+      detail: null,
+      logo: null,
+      websiteUrl: null,
+      planId: null,
+      ratio: 0,
+      reviews: 0
+    }
+  });
+
   return prisma.user.create({
     data: {
       email,
       name,
       password: await encryptPassword(password),
-      role
+      role,
+      companyId: company.id // Associate the user with the new company
     }
   });
 };

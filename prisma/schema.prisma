@@ -22,21 +22,21 @@ model User {
 }
 
 model Company {
-  id         Int         @id @default(autoincrement())
-  name       String
-  detail     String?
-  logo       String?
-  websiteUrl String?
-  planId     Int?
-  ratio      Float?      @default(0)
-  reviews    Int?        @default(0)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  Plan       Plan?       @relation(fields: [planId], references: [id])
-  Products   Product[]
-  Promotions Promotion[]
-  Users      User[]
-  campaigns  Campaign[]
+  id          Int      @id @default(autoincrement())
+  name        String?
+  detail      String?
+  logo        String?
+  websiteUrl  String?
+  planId      Int?
+  ratio       Float?      @default(0)
+  reviews     Int?        @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  Plan        Plan?       @relation(fields: [planId], references: [id])
+  Products    Product[]
+  Promotions  Promotion[]
+  Users       User[]
+  campaigns   Campaign[]
 }
 
 model Category {
