@@ -3,11 +3,11 @@ import { Request, Response, NextFunction } from 'express';
 
 export const verifyRecaptcha = async (req: Request, res: Response, next: NextFunction) => {
   const token = req.body.recaptchaToken;
-  console.log(1);
+  // console.log(1);
   if (!token) {
     return res.status(400).json({ error: 'reCAPTCHA token missing' });
   }
-  console.log(2);
+  // console.log(2);
   try {
     const response = await axios.post('https://www.google.com/recaptcha/api/siteverify', null, {
       params: {

@@ -12,7 +12,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 const createCampaign = catchAsync(async (req: Request, res: Response) => {
-  console.log('Controller received request body:', JSON.stringify(req.body, null, 2));
+  // console.log('Controller received request body:', JSON.stringify(req.body, null, 2));
   // Get the authenticated user's company ID
   if (!req.user || !('companyId' in req.user)) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'User must be associated with a company');
@@ -23,13 +23,13 @@ const createCampaign = catchAsync(async (req: Request, res: Response) => {
     req.body.productIds = req.body.productIds
       .split(',')
       .map((id: string) => parseInt(id.trim(), 10));
-    console.log('Controller: Converted productIds string to array:', req.body.productIds);
+    // console.log('Controller: Converted productIds string to array:', req.body.productIds);
   }
 
   // Handle marketplaces - convert string to array if needed
   if (req.body.marketplaces && typeof req.body.marketplaces === 'string') {
     req.body.marketplaces = req.body.marketplaces.split(',').map((m: string) => m.trim());
-    console.log('Controller: Converted marketplaces string to array:', req.body.marketplaces);
+    // console.log('Controller: Converted marketplaces string to array:', req.body.marketplaces);
   }
 
   // Set the company ID from the authenticated user
@@ -43,11 +43,25 @@ const createCampaign = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getCampaigns = catchAsync(async (req: Request, res: Response) => {
-  const result = await campaignService.queryCampaigns(req.query, {
+  // Process query parameters to ensure proper types
+  const query: Record<string, any> = {};
+
+  // Copy and convert query parameters
+  if (req.query.title) query.title = req.query.title;
+  if (req.query.isActive) query.isActive = req.query.isActive;
+  if (req.query.promotionId) query.promotionId = Number(req.query.promotionId);
+  if (req.query.companyId) query.companyId = Number(req.query.companyId);
+  if (req.query.claims) query.claims = Number(req.query.claims);
+
+  // Ensure limit and page are valid numbers
+  const limit = req.query.limit ? Number(req.query.limit) : undefined;
+  const page = req.query.page ? Number(req.query.page) : undefined;
+
+  const result = await campaignService.queryCampaigns(query, {
     sortBy: req.query.sortBy as string,
     sortOrder: req.query.sortOrder as 'asc' | 'desc',
-    limit: Number(req.query.limit),
-    page: Number(req.query.page)
+    limit,
+    page
   });
   res.send(result);
 });

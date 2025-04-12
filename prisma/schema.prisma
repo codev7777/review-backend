@@ -53,6 +53,7 @@ model Product {
   title       String
   description String
   image       String
+  asin        String?  @unique
   company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId   Int
   ratio       Float    @default(0)

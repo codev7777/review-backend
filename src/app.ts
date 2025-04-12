@@ -4,6 +4,7 @@ import compression from 'compression';
 import cors from 'cors';
 import passport from 'passport';
 import httpStatus from 'http-status';
+import path from 'path';
 import config from './config/config';
 import morgan from './config/morgan';
 import xss from './middlewares/xss';
@@ -24,7 +25,7 @@ if (config.env !== 'test') {
 app.use(helmet());
 
 // parse json request body
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // parse urlencoded request body
 app.use(express.urlencoded({ extended: true }));
@@ -36,16 +37,20 @@ app.use(xss());
 app.use(compression());
 
 // enable cors
-app.use(
-  cors({
-    origin: 'http://localhost:8080',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
-    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
-    credentials: true, // Allow cookies/token
-    maxAge: 86400 // ✅ Cache preflight for 24 hours
-  })
-);
+app.use(cors());
 app.options('*', cors());
+
+// Serve static files from uploads directory with CORS headers
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(path.join(__dirname, '../uploads'))
+);
 
 // jwt authentication
 app.use(passport.initialize());

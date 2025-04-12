@@ -18,7 +18,7 @@ const loginUserWithEmailAndPassword = async (
   email: string,
   password: string
 ): Promise<Omit<User, 'password'>> => {
-  console.log(email, password);
+  // console.log(email, password);
   const user = await userService.getUserByEmail(email, [
     'id',
     'email',

@@ -4,7 +4,11 @@ const createCompany = {
   body: Joi.object().keys({
     name: Joi.string().required(),
     detail: Joi.string(),
-    logo: Joi.string(),
+    logo: Joi.string()
+      .pattern(/^data:image\/(jpeg|png|gif|webp);base64,/)
+      .messages({
+        'string.pattern.base': 'Logo must be a valid base64 encoded image (JPEG, PNG, GIF, or WebP)'
+      }),
     websiteUrl: Joi.string().uri(),
     planId: Joi.number().integer().optional(),
     // These fields are optional in the request but will have default values (0)
@@ -36,7 +40,12 @@ const updateCompany = {
     .keys({
       name: Joi.string(),
       detail: Joi.string(),
-      logo: Joi.string(),
+      logo: Joi.string()
+        .pattern(/^data:image\/(jpeg|png|gif|webp);base64,/)
+        .messages({
+          'string.pattern.base':
+            'Logo must be a valid base64 encoded image (JPEG, PNG, GIF, or WebP)'
+        }),
       websiteUrl: Joi.string().uri(),
       planId: Joi.number().integer(),
       ratio: Joi.number(),

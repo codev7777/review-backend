@@ -39,14 +39,28 @@ const getPromotions = catchAsync(async (req: Request, res: Response) => {
     );
   }
 
-  // Add the company ID to the filter
+  // Use companyId from query params if provided, otherwise use user's companyId
   const filter = {
     ...req.query,
-    companyId: user.companyId
+    companyId: req.query.companyId ? Number(req.query.companyId) : user.companyId
   };
 
+  // Ensure the user can only access promotions from their company
+  if (filter.companyId !== user.companyId) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      'You do not have permission to access promotions from other companies'
+    );
+  }
+
   const result = await promotionService.queryPromotions(filter, req.query);
-  res.send(result);
+
+  // Format response to match frontend expectations
+  res.send({
+    data: result.results,
+    totalPages: result.totalPages,
+    totalCount: result.total
+  });
 });
 
 const getPromotion = catchAsync(async (req: Request, res: Response) => {

@@ -39,7 +39,13 @@ const createCampaign = {
         .required(),
       Joi.string().required()
     ),
-    claims: Joi.number().default(0)
+    claims: Joi.number().default(0),
+    image: Joi.string()
+      .pattern(/^data:image\/(jpeg|png|gif|webp);base64,/)
+      .messages({
+        'string.pattern.base':
+          'Image must be a valid base64 encoded image (JPEG, PNG, GIF, or WebP)'
+      })
   })
 };
 
@@ -100,7 +106,13 @@ const updateCampaign = {
         ),
         Joi.string()
       ),
-      claims: Joi.number()
+      claims: Joi.number(),
+      image: Joi.string()
+        .pattern(/^data:image\/(jpeg|png|gif|webp);base64,/)
+        .messages({
+          'string.pattern.base':
+            'Image must be a valid base64 encoded image (JPEG, PNG, GIF, or WebP)'
+        })
     })
     .min(1)
 };

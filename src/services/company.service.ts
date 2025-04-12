@@ -3,6 +3,7 @@ import httpStatus from 'http-status';
 import prisma from '../client';
 import ApiError from '../utils/ApiError';
 import pick from '../utils/pick';
+import { saveCompanyLogo, deleteImage } from '../utils/fileUpload';
 
 /**
  * Create a company
@@ -10,15 +11,21 @@ import pick from '../utils/pick';
  * @returns {Promise<Company>}
  */
 const createCompany = async (companyBody: Prisma.CompanyCreateInput): Promise<Company> => {
-  // Create a new object without the Plan relation
-  const { Plan, ...rest } = companyBody;
+  const { logo, Plan, ...rest } = companyBody;
+
+  // Handle logo upload if provided
+  let logoPath = null;
+  if (typeof logo === 'string' && logo.startsWith('data:image')) {
+    logoPath = await saveCompanyLogo(logo);
+  }
 
   // Ensure required fields have default values if not provided
-  const data = {
+  const data: Prisma.CompanyCreateInput = {
     ...rest,
     ratio: rest.ratio ?? 0,
     reviews: rest.reviews ?? 0,
-    planId: null // Explicitly set planId to null
+    Plan: undefined, // Remove Plan from create input
+    logo: logoPath
   };
 
   return prisma.company.create({
@@ -68,9 +75,13 @@ const queryCompanies = async (
  * @returns {Promise<Company | null>}
  */
 const getCompanyById = async (id: number): Promise<Company | null> => {
-  return prisma.company.findUnique({
+  const company = await prisma.company.findUnique({
     where: { id }
   });
+  if (!company) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Company not found');
+  }
+  return company;
 };
 
 /**
@@ -82,16 +93,39 @@ const getCompanyById = async (id: number): Promise<Company | null> => {
 const updateCompanyById = async (
   companyId: number,
   updateBody: Prisma.CompanyUpdateInput
-): Promise<Company | null> => {
+): Promise<Company> => {
   const company = await getCompanyById(companyId);
   if (!company) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Company not found');
   }
-  await prisma.company.update({
+
+  const { logo, ...updateData } = updateBody;
+
+  // Handle logo update if provided
+  let logoPath = company.logo;
+  if (logo) {
+    if (typeof logo === 'string' && logo.startsWith('data:image')) {
+      // Delete old logo if exists
+      if (company.logo) {
+        await deleteImage(company.logo);
+      }
+      logoPath = await saveCompanyLogo(logo);
+    } else if (logo === null) {
+      // Delete old logo if exists
+      if (company.logo) {
+        await deleteImage(company.logo);
+      }
+      logoPath = null;
+    }
+  }
+
+  return prisma.company.update({
     where: { id: companyId },
-    data: updateBody
+    data: {
+      ...updateData,
+      logo: logoPath
+    }
   });
-  return getCompanyById(companyId);
 };
 
 /**
@@ -104,6 +138,12 @@ const deleteCompanyById = async (companyId: number): Promise<Company> => {
   if (!company) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Company not found');
   }
+
+  // Delete logo if exists
+  if (company.logo) {
+    await deleteImage(company.logo);
+  }
+
   await prisma.company.delete({ where: { id: companyId } });
   return company;
 };

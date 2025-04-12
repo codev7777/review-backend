@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import type { Prisma, PromotionType } from '@prisma/client';
 import httpStatus from 'http-status';
 import ApiError from '../utils/ApiError';
+import { savePromotionImage, deleteImage } from '../utils/fileUpload';
 
 const prisma = new PrismaClient();
 
@@ -27,14 +28,23 @@ interface QueryResult {
 
 /**
  * Create a promotion
- * @param {Prisma.PromotionCreateInput} promotionBody
+ * @param {any} promotionBody
  * @returns {Promise<Prisma.PromotionGetPayload<{ include: { company: true } }>>}
  */
 const createPromotion = async (
-  promotionBody: Prisma.PromotionCreateInput
+  promotionBody: any
 ): Promise<Prisma.PromotionGetPayload<{ include: { company: true } }>> => {
+  // Handle image upload
+  let imageUrl = promotionBody.image;
+  if (promotionBody.image && promotionBody.image.startsWith('data:image')) {
+    imageUrl = savePromotionImage(promotionBody.image);
+  }
+
   return prisma.promotion.create({
-    data: promotionBody,
+    data: {
+      ...promotionBody,
+      image: imageUrl
+    },
     include: {
       company: true
     }
@@ -108,20 +118,34 @@ const getPromotionById = async (
 /**
  * Update promotion by id
  * @param {number} promotionId
- * @param {Prisma.PromotionUpdateInput} updateBody
+ * @param {any} updateBody
  * @returns {Promise<Prisma.PromotionGetPayload<{ include: { company: true } }>>}
  */
 const updatePromotionById = async (
   promotionId: number,
-  updateBody: Prisma.PromotionUpdateInput
+  updateBody: any
 ): Promise<Prisma.PromotionGetPayload<{ include: { company: true } }>> => {
   const promotion = await getPromotionById(promotionId);
   if (!promotion) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Promotion not found');
   }
+
+  // Handle image upload if a new image is provided
+  let imageUrl = updateBody.image;
+  if (updateBody.image && updateBody.image.startsWith('data:image')) {
+    // Delete the old image if it exists
+    if (promotion.image) {
+      deleteImage(promotion.image);
+    }
+    imageUrl = savePromotionImage(updateBody.image);
+  }
+
   return prisma.promotion.update({
     where: { id: promotionId },
-    data: updateBody,
+    data: {
+      ...updateBody,
+      image: imageUrl
+    },
     include: {
       company: true
     }
@@ -131,20 +155,21 @@ const updatePromotionById = async (
 /**
  * Delete promotion by id
  * @param {number} promotionId
- * @returns {Promise<Prisma.PromotionGetPayload<{ include: { company: true } }>>}
+ * @returns {Promise<void>}
  */
-const deletePromotionById = async (
-  promotionId: number
-): Promise<Prisma.PromotionGetPayload<{ include: { company: true } }>> => {
+const deletePromotionById = async (promotionId: number): Promise<void> => {
   const promotion = await getPromotionById(promotionId);
   if (!promotion) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Promotion not found');
   }
-  return prisma.promotion.delete({
-    where: { id: promotionId },
-    include: {
-      company: true
-    }
+
+  // Delete the promotion image if it exists
+  if (promotion.image) {
+    deleteImage(promotion.image);
+  }
+
+  await prisma.promotion.delete({
+    where: { id: promotionId }
   });
 };
 

@@ -8,8 +8,13 @@ import config from '../../config/config';
 import productRoute from './product.route';
 import promotionRoute from './promotion.route';
 import campaignRoute from './campaign.route';
+import healthRoute from './health.route';
+import imageRoute from './image.route';
 
 const router = express.Router();
+
+// Health check endpoint
+router.use('/health', healthRoute);
 
 const defaultRoutes = [
   {
@@ -60,5 +65,13 @@ if (config.env === 'development') {
     router.use(route.path, route.route);
   });
 }
+
+// Documentation route
+if (config.env === 'development') {
+  router.use('/docs', docsRoute);
+}
+
+// API routes
+router.use('/images', imageRoute);
 
 export default router;
