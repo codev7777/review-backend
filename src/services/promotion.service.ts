@@ -40,11 +40,37 @@ const createPromotion = async (
     imageUrl = savePromotionImage(promotionBody.image);
   }
 
+  // Prepare promotion data based on type
+  const promotionData: any = {
+    title: promotionBody.title,
+    description: promotionBody.description,
+    promotionType: promotionBody.promotionType,
+    image: imageUrl,
+    companyId: promotionBody.companyId
+  };
+
+  // Add type-specific fields
+  switch (promotionBody.promotionType) {
+    case 'GIFT_CARD':
+      promotionData.giftCardDeliveryMethod = promotionBody.giftCardDeliveryMethod;
+      break;
+    case 'DISCOUNT_CODE':
+      promotionData.approvalMethod = promotionBody.approvalMethod;
+      promotionData.codeType = promotionBody.codeType;
+      promotionData.couponCodes = promotionBody.couponCodes;
+      break;
+    case 'FREE_PRODUCT':
+      promotionData.freeProductDeliveryMethod = 'SHIP';
+      promotionData.freeProductApprovalMethod = 'MANUAL';
+      break;
+    case 'DIGITAL_DOWNLOAD':
+      promotionData.downloadableFileUrl = promotionBody.downloadableFileUrl;
+      promotionData.digitalApprovalMethod = promotionBody.digitalApprovalMethod;
+      break;
+  }
+
   return prisma.promotion.create({
-    data: {
-      ...promotionBody,
-      image: imageUrl
-    },
+    data: promotionData,
     include: {
       company: true
     }
@@ -140,12 +166,32 @@ const updatePromotionById = async (
     imageUrl = savePromotionImage(updateBody.image);
   }
 
+  // Prepare update data based on type
+  const updateData: any = {
+    ...updateBody,
+    image: imageUrl
+  };
+
+  // Remove type-specific fields that don't belong to the current promotion type
+  const currentType = promotion.promotionType;
+  if (currentType !== 'GIFT_CARD') delete updateData.giftCardDeliveryMethod;
+  if (currentType !== 'DISCOUNT_CODE') {
+    delete updateData.approvalMethod;
+    delete updateData.codeType;
+    delete updateData.couponCodes;
+  }
+  if (currentType !== 'FREE_PRODUCT') {
+    delete updateData.freeProductDeliveryMethod;
+    delete updateData.freeProductApprovalMethod;
+  }
+  if (currentType !== 'DIGITAL_DOWNLOAD') {
+    delete updateData.downloadableFileUrl;
+    delete updateData.digitalApprovalMethod;
+  }
+
   return prisma.promotion.update({
     where: { id: promotionId },
-    data: {
-      ...updateBody,
-      image: imageUrl
-    },
+    data: updateData,
     include: {
       company: true
     }

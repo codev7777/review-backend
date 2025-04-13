@@ -16,6 +16,7 @@ interface FilterOptions {
   companyId?: number;
   categoryId?: number;
   asin?: string;
+  ids?: string;
 }
 
 /**
@@ -72,6 +73,28 @@ const createProduct0 = async (productBody: any): Promise<Product> => {
 const queryProducts = async (filter: FilterOptions, options: QueryOptions) => {
   const { limit = 10, page = 1, sortBy } = options;
   const skip = (page - 1) * limit;
+
+  // If IDs are provided, get those specific products
+  if (filter.ids) {
+    const productIds = filter.ids.split(',').map((id) => parseInt(id, 10));
+    const products = await prisma.product.findMany({
+      where: {
+        id: { in: productIds }
+      },
+      include: {
+        category: true,
+        company: true
+      }
+    });
+
+    return {
+      results: products,
+      page,
+      limit,
+      totalPages: 1,
+      total: products.length
+    };
+  }
 
   // If ASIN is provided, get the product IDs first using raw SQL
   if (filter.asin) {

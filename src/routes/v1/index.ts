@@ -10,6 +10,7 @@ import promotionRoute from './promotion.route';
 import campaignRoute from './campaign.route';
 import healthRoute from './health.route';
 import imageRoute from './image.route';
+import reviewRoute from './review.route';
 
 const router = express.Router();
 
@@ -73,5 +74,8 @@ if (config.env === 'development') {
 
 // API routes
 router.use('/images', imageRoute);
+
+// Review routes
+router.use('/reviews', reviewRoute);
 
 export default router;

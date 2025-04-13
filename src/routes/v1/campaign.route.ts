@@ -9,11 +9,11 @@ const router = express.Router();
 router
   .route('/')
   .post(auth(), validate(campaignValidation.createCampaign), campaignController.createCampaign)
-  .get(auth(), validate(campaignValidation.getCampaigns), campaignController.getCampaigns);
+  .get(validate(campaignValidation.getCampaigns), campaignController.getCampaigns);
 
 router
   .route('/:campaignId')
-  .get(auth(), validate(campaignValidation.getCampaign), campaignController.getCampaign)
+  .get(validate(campaignValidation.getCampaign), campaignController.getCampaign)
   .patch(auth(), validate(campaignValidation.updateCampaign), campaignController.updateCampaign)
   .delete(auth(), validate(campaignValidation.deleteCampaign), campaignController.deleteCampaign);
 

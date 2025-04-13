@@ -75,8 +75,13 @@ model Review {
   feedback    String
   marketplace String
   customerId  Int
+  orderNo     String?
+  feedbackDate DateTime @default(now())
+  promotionId Int?
+  status      ReviewStatus @default(PENDING)
   Customer    Customer @relation(fields: [customerId], references: [id])
   Product     Product  @relation(fields: [productId], references: [id])
+  Promotion   Promotion? @relation(fields: [promotionId], references: [id])
 }
 
 model Customer {
@@ -100,16 +105,34 @@ model Plan {
 }
 
 model Promotion {
-  id            Int           @id @default(autoincrement())
-  title         String
-  image         String
-  promotionType PromotionType
-  description   String
-  company       Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId     Int
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  Campaigns     Campaign[]
+  id               Int           @id @default(autoincrement())
+  title            String
+  image            String
+  promotionType    PromotionType
+  description      String
+  company          Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId        Int
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  Campaigns        Campaign[]
+  Reviews          Review[]
+
+  // GIFT_CARD specific fields
+  giftCardDeliveryMethod DeliveryMethod?  // SHIP or DIGITAL
+  
+  // DISCOUNT_CODE specific fields
+  approvalMethod       ApprovalMethod?  // MANUAL or AUTOMATIC
+  codeType             CodeType?        // SAME_FOR_ALL or SINGLE_USE
+  couponCodes          String[]         // Array of coupon codes
+  
+  // FREE_PRODUCT specific fields (fixed as per your requirement)
+  freeProductDeliveryMethod DeliveryMethod?  @default(SHIP)
+  freeProductApprovalMethod ApprovalMethod? @default(MANUAL)
+
+  // DIGITAL_DOWNLOAD specific fields
+  downloadableFileUrl      String?         // URL or path to the downloadable file
+  digitalApprovalMethod    ApprovalMethod? // MANUAL or AUTOMATIC
+
   @@index([companyId])
 }
 
@@ -181,6 +204,27 @@ enum TokenType {
 enum CampaignStatus {
   YES
   NO
+}
+
+enum DeliveryMethod {
+  SHIP
+  DIGITAL
+}
+
+enum ApprovalMethod {
+  MANUAL
+  AUTOMATIC
+}
+
+enum CodeType {
+  SAME_FOR_ALL
+  SINGLE_USE
+}
+
+enum ReviewStatus {
+  PENDING
+  PROCESSED
+  REJECTED
 }
 
 model Campaign {

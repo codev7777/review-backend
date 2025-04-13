@@ -29,6 +29,20 @@ declare global {
   }
 }
 
+interface FilterOptions {
+  title?: string;
+  companyId?: number;
+  categoryId?: number;
+  asin?: string;
+  ids?: string;
+}
+
+interface QueryOptions {
+  page: number;
+  limit: number;
+  sortBy?: string;
+}
+
 const createProduct = catchAsync(async (req: Request, res: Response) => {
   // Process the request body
   const productData = { ...req.body };
@@ -52,36 +66,34 @@ const createProduct = catchAsync(async (req: Request, res: Response) => {
   res.status(httpStatus.CREATED).send(product);
 });
 
-const getProducts = catchAsync(async (req: Request, res: Response) => {
-  // Get filter options from query parameters
-  const filter = pick(req.query, [
-    'title',
-    'companyId',
-    'categoryId',
-    'minPrice',
-    'maxPrice',
-    'isActive'
-  ]);
+export const getProducts = async (req: Request, res: Response) => {
+  try {
+    const { title, companyId, categoryId, asin, ids } = req.query;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const sortBy = req.query.sortBy as string;
 
-  // Get pagination and sorting options
-  const options = pick(req.query, ['sortBy', 'limit', 'page']);
+    const filter: FilterOptions = {
+      ...(title && { title: title as string }),
+      ...(companyId && { companyId: parseInt(companyId as string) }),
+      ...(categoryId && { categoryId: parseInt(categoryId as string) }),
+      ...(asin && { asin: asin as string }),
+      ...(ids && { ids: ids as string })
+    };
 
-  // If companyId is provided as a string, convert it to a number
-  if (filter.companyId && typeof filter.companyId === 'string') {
-    filter.companyId = parseInt(filter.companyId, 10);
+    const options: QueryOptions = {
+      page,
+      limit,
+      ...(sortBy && { sortBy })
+    };
+
+    const result = await queryProducts(filter, options);
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    res.status(500).json({ error: 'Failed to fetch products' });
   }
-
-  // If categoryId is provided as a string, convert it to a number
-  if (filter.categoryId && typeof filter.categoryId === 'string') {
-    filter.categoryId = parseInt(filter.categoryId, 10);
-  }
-
-  console.log('Product filter:', filter);
-  console.log('Product options:', options);
-
-  const result = await queryProducts(filter, options);
-  res.send(result);
-});
+};
 
 const getProduct = catchAsync(async (req: Request, res: Response) => {
   const product = await getProductById(Number(req.params.productId));

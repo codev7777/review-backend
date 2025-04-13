@@ -71,7 +71,16 @@ const getCampaign = catchAsync(async (req: Request, res: Response) => {
   if (!campaign) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Campaign not found');
   }
-  res.send(campaign);
+
+  // Include related data
+  const campaignWithRelations = {
+    ...campaign,
+    products: campaign.products || [],
+    promotion: campaign.promotion || null,
+    company: campaign.company || null
+  };
+
+  res.send(campaignWithRelations);
 });
 
 const updateCampaign = catchAsync(async (req: Request, res: Response) => {
