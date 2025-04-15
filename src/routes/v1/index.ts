@@ -11,11 +11,15 @@ import campaignRoute from './campaign.route';
 import healthRoute from './health.route';
 import imageRoute from './image.route';
 import reviewRoute from './review.route';
+import publicRoute from './public.route';
 
 const router = express.Router();
 
 // Health check endpoint
 router.use('/health', healthRoute);
+
+// Public endpoints (no authentication required)
+router.use('/public', publicRoute);
 
 const defaultRoutes = [
   {

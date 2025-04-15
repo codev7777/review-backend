@@ -1,4 +1,4 @@
-import { Review, Customer, Prisma } from '@prisma/client';
+import { Review, Customer, Prisma, Marketplace } from '@prisma/client';
 import httpStatus from 'http-status';
 import prisma from '../client';
 import ApiError from '../utils/ApiError';
@@ -13,30 +13,39 @@ const createOrUpdateCustomer = async (customerData: {
   name: string;
   ratio: number;
 }): Promise<Customer> => {
-  const existingCustomer = await prisma.customer.findUnique({
-    where: { email: customerData.email }
-  });
+  try {
+    const existingCustomer = await prisma.customer.findUnique({
+      where: { email: customerData.email }
+    });
 
-  if (existingCustomer) {
-    // Update existing customer
-    return prisma.customer.update({
-      where: { id: existingCustomer.id },
+    if (existingCustomer) {
+      // Update existing customer with weighted average ratio
+      const totalReviews = existingCustomer.reviews + 1;
+      const newRatio =
+        (existingCustomer.ratio * existingCustomer.reviews + customerData.ratio) / totalReviews;
+
+      return prisma.customer.update({
+        where: { id: existingCustomer.id },
+        data: {
+          reviews: totalReviews,
+          ratio: newRatio
+        }
+      });
+    }
+
+    // Create new customer with initial ratio
+    return prisma.customer.create({
       data: {
-        reviews: existingCustomer.reviews + 1,
-        ratio: (existingCustomer.ratio + customerData.ratio) / (existingCustomer.reviews + 1)
+        email: customerData.email,
+        name: customerData.name,
+        reviews: 1,
+        ratio: customerData.ratio || 0 // Ensure ratio has a default value
       }
     });
+  } catch (error) {
+    console.error('Error creating/updating customer:', error);
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to create/update customer');
   }
-
-  // Create new customer
-  return prisma.customer.create({
-    data: {
-      email: customerData.email,
-      name: customerData.name,
-      reviews: 1,
-      ratio: customerData.ratio
-    }
-  });
 };
 
 /**
@@ -55,11 +64,41 @@ const createReview = async (reviewData: {
   promotionId?: number;
 }): Promise<Review> => {
   try {
+    // Validate required fields
+    if (
+      !reviewData.email ||
+      !reviewData.name ||
+      !reviewData.productId ||
+      !reviewData.feedback ||
+      !reviewData.marketplace
+    ) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Missing required fields');
+    }
+
+    // Validate and normalize ratio
+    let ratio = 0;
+    if (reviewData.ratio !== undefined && reviewData.ratio !== null) {
+      ratio = parseFloat(String(reviewData.ratio));
+      if (isNaN(ratio)) {
+        ratio = 0;
+      }
+    }
+
+    // Validate marketplace format
+    const marketplace = reviewData.marketplace.toUpperCase();
+    const validMarketplaces = Object.values(Marketplace);
+    if (!validMarketplaces.includes(marketplace as Marketplace)) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `Invalid marketplace value. Must be one of: ${validMarketplaces.join(', ')}`
+      );
+    }
+
     // Create or update customer first
     const customer = await createOrUpdateCustomer({
       email: reviewData.email,
       name: reviewData.name,
-      ratio: reviewData.ratio
+      ratio: ratio
     });
 
     // Create review
@@ -68,13 +107,17 @@ const createReview = async (reviewData: {
         email: reviewData.email,
         name: reviewData.name,
         productId: reviewData.productId,
-        ratio: reviewData.ratio,
+        ratio: ratio,
         feedback: reviewData.feedback,
-        marketplace: reviewData.marketplace,
+        marketplace: marketplace,
         orderNo: reviewData.orderNo,
         promotionId: reviewData.promotionId,
         customerId: customer.id,
         status: 'PENDING'
+      },
+      include: {
+        Product: true,
+        Customer: true
       }
     });
 
@@ -83,7 +126,7 @@ const createReview = async (reviewData: {
       where: { id: reviewData.productId },
       data: {
         ratio: {
-          increment: reviewData.ratio
+          increment: ratio
         }
       }
     });
@@ -99,7 +142,7 @@ const createReview = async (reviewData: {
         where: { id: product.company.id },
         data: {
           ratio: {
-            increment: reviewData.ratio
+            increment: ratio
           },
           reviews: {
             increment: 1
@@ -111,11 +154,102 @@ const createReview = async (reviewData: {
     return review;
   } catch (error) {
     console.error('Error creating review:', error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to create review');
   }
 };
 
-export default {
+/**
+ * Get reviews for a company with pagination and filtering
+ * @param {number} companyId
+ * @param {string} status
+ * @param {number} page
+ * @param {number} limit
+ * @param {string} sortBy
+ * @param {string} sortOrder
+ * @returns {Promise<{ reviews: Review[]; total: number }>}
+ */
+const getCompanyReviews = async (
+  companyId: number,
+  status?: string,
+  page: number = 1,
+  limit: number = 10,
+  sortBy: string = 'feedbackDate',
+  sortOrder: 'asc' | 'desc' = 'desc'
+): Promise<{ reviews: Review[]; total: number }> => {
+  try {
+    const where: Prisma.ReviewWhereInput = {
+      Product: {
+        companyId: companyId
+      }
+    };
+
+    if (status) {
+      where.status = status as Review['status'];
+    }
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        include: {
+          Product: {
+            select: {
+              title: true,
+              image: true,
+              asin: true
+            }
+          },
+          Customer: {
+            select: {
+              name: true,
+              email: true
+            }
+          }
+        },
+        orderBy: {
+          feedbackDate: 'desc'
+        },
+        skip: (page - 1) * limit,
+        take: limit
+      }),
+      prisma.review.count({ where })
+    ]);
+
+    return { reviews, total };
+  } catch (error) {
+    console.error('Error getting company reviews:', error);
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to get reviews');
+  }
+};
+
+/**
+ * Update review status
+ * @param {number} reviewId
+ * @param {string} status
+ * @returns {Promise<Review>}
+ */
+const updateReviewStatus = async (
+  reviewId: number,
+  status: 'PENDING' | 'PROCESSED' | 'REJECTED'
+): Promise<Review> => {
+  try {
+    const review = await prisma.review.update({
+      where: { id: reviewId },
+      data: { status }
+    });
+
+    return review;
+  } catch (error) {
+    console.error('Error updating review status:', error);
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to update review status');
+  }
+};
+
+export const reviewService = {
   createReview,
-  createOrUpdateCustomer
+  createOrUpdateCustomer,
+  getCompanyReviews,
+  updateReviewStatus
 };

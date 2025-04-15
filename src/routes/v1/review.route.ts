@@ -1,10 +1,11 @@
 import express from 'express';
 import reviewController from '../../controllers/review.controller';
-import validate from '../../middlewares/validate';
-import reviewValidation from '../../validations/review.validation';
+import auth from '../../middlewares/auth';
 
 const router = express.Router();
 
-router.route('/').post(validate(reviewValidation.createReview), reviewController.createReview);
+router.post('/', auth(), reviewController.createReview);
+router.get('/company/:companyId', auth(), reviewController.getCompanyReviews);
+router.patch('/:reviewId/status', auth(), reviewController.updateReviewStatus);
 
 export default router;

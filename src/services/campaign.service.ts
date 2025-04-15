@@ -96,10 +96,20 @@ const queryCampaigns = async (filter: any, options: any) => {
   if (filter.isActive) where.isActive = filter.isActive;
   if (filter.promotionId) where.promotionId = filter.promotionId;
   if (filter.companyId) where.companyId = filter.companyId;
+  if (filter.claims) where.claims = filter.claims;
 
   const orderBy: any = {};
   if (sortBy) {
-    orderBy[sortBy] = sortOrder;
+    // Map frontend field names to database field names
+    const fieldMap: Record<string, string> = {
+      name: 'title',
+      status: 'isActive',
+      reviews: 'claims',
+      updatedAt: 'updatedAt'
+    };
+
+    const dbField = fieldMap[sortBy] || sortBy;
+    orderBy[dbField] = sortOrder;
   } else {
     orderBy.id = 'desc';
   }
