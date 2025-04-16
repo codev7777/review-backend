@@ -1,14 +1,28 @@
 {
   "compilerOptions": {
-    "target": "es2016",
-    "outDir": "./build",
+    "target": "es2018",
     "module": "commonjs",
-    "types": ["node"],
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "lib": ["es2018", "esnext.asynciterable"],
     "skipLibCheck": true,
-    "strictNullChecks": true
-  }
+    "sourceMap": true,
+    "outDir": "./dist",
+    "moduleResolution": "node",
+    "removeComments": true,
+    "noImplicitAny": false,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "resolveJsonModule": true,
+    "baseUrl": "."
+  },
+  "exclude": ["node_modules"],
+  "include": ["./src/**/*.ts", "./prisma/**/*.ts", "./tests/**/*.ts"]
 }
