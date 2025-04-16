@@ -29,7 +29,11 @@ declare module 'swagger-jsdoc' {
 }
 
 declare module 'swagger-ui-express' {
-  export default function swaggerUiExpress(options: any): any;
+  const swaggerUiExpress: {
+    serve: any;
+    setup: (swaggerDoc: any) => any;
+  };
+  export default swaggerUiExpress;
 }
 
 declare module 'node-mocks-http' {
@@ -49,6 +53,7 @@ declare module 'supertest' {
 declare module '@jest/globals' {
   export const describe: any;
   export const it: any;
+  export const test: any;
   export const expect: any;
   export const jest: any;
   export const beforeAll: any;
