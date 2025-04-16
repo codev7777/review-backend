@@ -10,7 +10,7 @@
     "build": "tsc",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate deploy",
-    "prisma:baseline": "npx prisma migrate resolve --applied",
+    "prisma:baseline": "npx prisma migrate resolve --applied 20250410211139_init",
     "postinstall": "npm install prisma --save-dev && npm run prisma:generate && (npm run prisma:migrate || npm run prisma:baseline)"
   },
   "keywords": [
