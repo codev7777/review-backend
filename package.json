@@ -10,7 +10,7 @@
     "build": "tsc",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "postinstall": "npm run prisma:generate && npm run prisma:migrate"
+    "postinstall": "npm install prisma --save-dev && npm run prisma:generate && npm run prisma:migrate"
   },
   "keywords": [
     "node",
