@@ -8,17 +8,21 @@ datasource db {
 }
 
 model User {
-  id              Int      @id @default(autoincrement())
-  email           String   @unique
-  name            String?
-  password        String
-  role            Role     @default(USER)
-  isEmailVerified Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  companyId       Int?
-  Token           Token[]
-  company         Company? @relation(fields: [companyId], references: [id])
+  id                Int       @id @default(autoincrement())
+  email             String    @unique
+  name              String?
+  password          String
+  firstName         String?
+  lastName          String?
+  role              Role      @default(USER)
+  isEmailVerified   Boolean   @default(false)
+  emailVerificationToken String?
+  emailVerificationTokenExpires DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  companyId         Int?
+  Token             Token[]
+  company           Company?  @relation(fields: [companyId], references: [id])
 }
 
 model Company {

@@ -18,7 +18,6 @@ const loginUserWithEmailAndPassword = async (
   email: string,
   password: string
 ): Promise<Omit<User, 'password'>> => {
-  // console.log(email, password);
   const user = await userService.getUserByEmail(email, [
     'id',
     'email',
@@ -28,11 +27,20 @@ const loginUserWithEmailAndPassword = async (
     'isEmailVerified',
     'createdAt',
     'updatedAt',
-    'companyId' // Ensure companyId is included
+    'companyId'
   ]);
+
   if (!user || !(await isPasswordMatch(password, user.password as string))) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Incorrect email or password');
   }
+
+  if (!user.isEmailVerified) {
+    throw new ApiError(
+      httpStatus.UNAUTHORIZED,
+      'Please verify your email before logging in. Check your email for the verification link.'
+    );
+  }
+
   return exclude(user, ['password']);
 };
 

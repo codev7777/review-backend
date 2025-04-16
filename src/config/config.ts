@@ -10,6 +10,7 @@ const envVarsSchema = Joi.object()
     PORT: Joi.number()
       .default(3000)
       .description('Default port for the server. If in use, will auto-increment.'),
+    FRONTEND_URL: Joi.string().required().description('Frontend URL for email links'),
     JWT_SECRET: Joi.string().required().description('JWT secret key'),
     JWT_ACCESS_EXPIRATION_MINUTES: Joi.number()
       .default(30)
@@ -42,6 +43,7 @@ if (error) {
 export default {
   env: envVars.NODE_ENV,
   port: envVars.PORT,
+  frontendUrl: envVars.FRONTEND_URL,
   jwt: {
     secret: envVars.JWT_SECRET,
     accessExpirationMinutes: envVars.JWT_ACCESS_EXPIRATION_MINUTES,
