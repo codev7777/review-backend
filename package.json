@@ -8,8 +8,8 @@
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "build": "tsc",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
+    "prisma:generate": "npx prisma generate",
+    "prisma:migrate": "npx prisma migrate deploy",
     "postinstall": "npm install prisma --save-dev && npm run prisma:generate && npm run prisma:migrate"
   },
   "keywords": [
