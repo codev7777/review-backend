@@ -10,8 +10,9 @@
     "build": "tsc",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate deploy",
+    "prisma:rollback": "npx prisma migrate resolve --rolled-back 20250411054438_add_category_model",
     "prisma:baseline": "npx prisma migrate resolve --applied 20250410211139_init 20250411054438_add_category_model 20250411104335_remove_campaign_model 20250411113046_add_promotion_model 20250411144203_add_campaign 20250411201024_add_asin_to_product 20250412164533_make_company_name_nullable 20250413132849_add_review_promotion_fields",
-    "postinstall": "npm install prisma --save-dev && npm run prisma:generate && (npm run prisma:migrate || npm run prisma:baseline)"
+    "postinstall": "npm install prisma --save-dev && npm run prisma:generate && (npm run prisma:migrate || (npm run prisma:rollback && npm run prisma:baseline))"
   },
   "keywords": [
     "node",
