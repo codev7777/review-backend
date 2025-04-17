@@ -50,7 +50,7 @@ const queryCompanies = async (
     sortBy?: string;
     sortType?: 'asc' | 'desc';
   }
-): Promise<Company[]> => {
+): Promise<{ companies: Company[]; totalCount: number }> => {
   const page = options.page || 1;
   const limit = options.limit || 10;
   const skip = (page - 1) * limit;
@@ -59,14 +59,21 @@ const queryCompanies = async (
 
   const where = { ...filter };
 
-  const companies = await prisma.company.findMany({
-    where,
-    skip,
-    take: limit,
-    orderBy: sortBy ? { [sortBy]: sortType } : undefined
-  });
+  const [companies, totalCount] = await Promise.all([
+    prisma.company.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: sortBy ? { [sortBy]: sortType } : undefined,
+      include: {
+        campaigns: true,
+        Products: true
+      }
+    }),
+    prisma.company.count({ where })
+  ]);
 
-  return companies;
+  return { companies, totalCount };
 };
 
 /**

@@ -2,6 +2,9 @@ import { Review, Customer, Prisma, Marketplace } from '@prisma/client';
 import httpStatus from 'http-status';
 import prisma from '../client';
 import ApiError from '../utils/ApiError';
+import { PrismaClient, CampaignStatus, ReviewStatus } from '@prisma/client';
+
+const prismaClient = new PrismaClient();
 
 /**
  * Create a customer or update if exists
@@ -48,131 +51,63 @@ const createOrUpdateCustomer = async (customerData: {
   }
 };
 
+type ReviewInput = Omit<Prisma.ReviewUncheckedCreateInput, 'id' | 'customerId' | 'feedbackDate'>;
+
 /**
  * Create a review
  * @param {Object} reviewData
  * @returns {Promise<Review>}
  */
-const createReview = async (reviewBody: any): Promise<any> => {
+const createReview = async (reviewBody: ReviewInput): Promise<Review> => {
   try {
-    if (
-      !reviewBody.email ||
-      !reviewBody.name ||
-      !reviewBody.productId ||
-      !reviewBody.feedback ||
-      !reviewBody.marketplace
-    ) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Missing required fields');
-    }
-
-    let ratio = 0;
-    if (reviewBody.ratio !== undefined && reviewBody.ratio !== null) {
-      ratio = parseFloat(String(reviewBody.ratio));
-      if (isNaN(ratio)) {
-        ratio = 0;
-      }
-    }
-
-    const marketplace = reviewBody.marketplace.toUpperCase();
-    const validMarketplaces = Object.values(Marketplace);
-    if (!validMarketplaces.includes(marketplace)) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        `Invalid marketplace value. Must be one of: ${validMarketplaces.join(', ')}`
-      );
-    }
-
-    // Create or update customer with the correct data structure
-    const customer = await createOrUpdateCustomer({
-      email: reviewBody.email,
-      name: reviewBody.name,
-      ratio: ratio
-    });
-
-    // Get product with active campaigns
-    const product = await prisma.product.findUnique({
+    const product = await prismaClient.product.findUnique({
       where: { id: reviewBody.productId },
       include: {
         Campaigns: {
-          where: {
-            isActive: 'YES'
-          }
+          where: { isActive: CampaignStatus.YES },
+          select: { id: true }
         }
       }
     });
 
     if (!product) {
-      throw new ApiError(httpStatus.NOT_FOUND, 'Product not found');
+      throw new Error('Product not found');
     }
 
-    // Create review
-    const review = await prisma.review.create({
+    // Create or update customer
+    const customer = await prismaClient.customer.upsert({
+      where: { email: reviewBody.email },
+      create: {
+        email: reviewBody.email,
+        name: reviewBody.name,
+        reviews: 1,
+        ratio: reviewBody.ratio
+      },
+      update: {
+        reviews: { increment: 1 },
+        ratio: reviewBody.ratio
+      }
+    });
+
+    const review = await prismaClient.review.create({
       data: {
         email: reviewBody.email,
         name: reviewBody.name,
         productId: reviewBody.productId,
-        ratio: ratio,
+        ratio: reviewBody.ratio,
         feedback: reviewBody.feedback,
-        marketplace: marketplace,
+        marketplace: reviewBody.marketplace,
         orderNo: reviewBody.orderNo,
         promotionId: reviewBody.promotionId,
+        campaignId: product.Campaigns?.[0]?.id,
         customerId: customer.id,
-        status: 'PENDING'
-      },
-      include: {
-        Product: true,
-        Customer: true
+        status: ReviewStatus.PENDING
       }
     });
-
-    // Update product ratio
-    await prisma.product.update({
-      where: { id: reviewBody.productId },
-      data: {
-        ratio: {
-          increment: ratio
-        }
-      }
-    });
-
-    // Update company statistics
-    if (product.companyId) {
-      await updateCompanyStatistics(product.companyId);
-    }
-
-    // Update campaign statistics if review is associated with a campaign
-    if (reviewBody.campaignId) {
-      await prisma.campaign.update({
-        where: { id: reviewBody.campaignId },
-        data: {
-          claims: {
-            increment: 1
-          }
-        }
-      });
-    }
-
-    // Update any active campaigns associated with the product
-    if (product.Campaigns && product.Campaigns.length > 0) {
-      for (const campaign of product.Campaigns) {
-        await prisma.campaign.update({
-          where: { id: campaign.id },
-          data: {
-            claims: {
-              increment: 1
-            }
-          }
-        });
-      }
-    }
 
     return review;
   } catch (error) {
-    console.error('Error creating review:', error);
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to create review');
+    throw error;
   }
 };
 
@@ -234,6 +169,14 @@ const getCompanyReviews = async (
             select: {
               title: true,
               description: true
+            }
+          },
+          Campaign: {
+            select: {
+              title: true,
+              isActive: true,
+              createdAt: true,
+              updatedAt: true
             }
           }
         },

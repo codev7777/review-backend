@@ -4,6 +4,7 @@ import ApiError from '../utils/ApiError';
 import catchAsync from '../utils/catchAsync';
 import { companyService, userService } from '../services';
 import { User } from '@prisma/client';
+import { Request, Response } from 'express';
 
 const createCompany = catchAsync(async (req, res) => {
   // Extract planId from request body if it exists
@@ -23,11 +24,18 @@ const createCompany = catchAsync(async (req, res) => {
   res.status(httpStatus.CREATED).send(company);
 });
 
-const getCompanies = catchAsync(async (req, res) => {
-  const filter = pick(req.query, ['name']);
-  const options = pick(req.query, ['sortBy', 'limit', 'page']);
-  const result = await companyService.queryCompanies(filter, options);
-  res.send(result);
+const getCompanies = catchAsync(async (req: Request, res: Response) => {
+  const filter = pick(req.query, ['name', 'role']);
+  const options = pick(req.query, ['sortBy', 'sortType', 'limit', 'page']);
+  const { companies, totalCount } = await companyService.queryCompanies(filter, options);
+  const limit = Number(options.limit) || 10;
+  const totalPages = Math.ceil(totalCount / limit);
+
+  res.send({
+    data: companies,
+    totalPages,
+    totalCount
+  });
 });
 
 const getCompany = catchAsync(async (req, res) => {

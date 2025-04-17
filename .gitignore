@@ -21,3 +21,6 @@ db
 
 # TypeScript
 build
+
+dist
+

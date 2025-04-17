@@ -30,11 +30,7 @@ const loginUserWithEmailAndPassword = async (
       isEmailVerified: true,
       createdAt: true,
       updatedAt: true,
-      companyId: true,
-      firstName: true,
-      lastName: true,
-      emailVerificationToken: true,
-      emailVerificationTokenExpires: true
+      companyId: true
     }
   });
   if (!user || !(await bcrypt.compare(password, user.password))) {

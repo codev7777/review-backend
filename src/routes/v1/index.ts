@@ -12,6 +12,7 @@ import healthRoute from './health.route';
 import imageRoute from './image.route';
 import reviewRoute from './review.route';
 import publicRoute from './public.route';
+import adminRoute from './admin.route';
 
 const router = express.Router();
 
@@ -81,5 +82,8 @@ router.use('/images', imageRoute);
 
 // Review routes
 router.use('/reviews', reviewRoute);
+
+// Admin routes
+router.use('/admin', adminRoute);
 
 export default router;
