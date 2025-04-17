@@ -40,6 +40,7 @@ const createCampaign = {
       Joi.string().required()
     ),
     claims: Joi.number().default(0),
+    companyId: Joi.number().required(),
     image: Joi.string()
       .pattern(/^data:image\/(jpeg|png|gif|webp);base64,/)
       .messages({
