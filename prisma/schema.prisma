@@ -82,10 +82,12 @@ model Review {
   orderNo     String?
   feedbackDate DateTime @default(now())
   promotionId Int?
+  campaignId  Int?
   status      ReviewStatus @default(PENDING)
   Customer    Customer @relation(fields: [customerId], references: [id])
   Product     Product  @relation(fields: [productId], references: [id])
   Promotion   Promotion? @relation(fields: [promotionId], references: [id])
+  Campaign    Campaign? @relation(fields: [campaignId], references: [id])
 }
 
 model Customer {
@@ -240,11 +242,13 @@ model Campaign {
   products    Product[]
   marketplaces Marketplace[]
   claims      Int       @default(0)
+  ratio       Float     @default(0)
   company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId   Int
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   productIds  Int[]
+  Reviews     Review[]
 
   @@index([companyId])
   @@index([promotionId])

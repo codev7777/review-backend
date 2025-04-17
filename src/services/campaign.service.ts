@@ -143,14 +143,61 @@ const queryCampaigns = async (filter: any, options: any) => {
  * @returns {Promise<any>}
  */
 const getCampaignById = async (id: number): Promise<any> => {
-  return prisma.campaign.findUnique({
-    where: { id },
-    include: {
-      promotion: true,
-      products: true,
-      company: true
+  try {
+    const campaign = await prisma.campaign.findUnique({
+      where: { id },
+      include: {
+        Reviews: {
+          include: {
+            Product: {
+              select: {
+                title: true,
+                image: true,
+                asin: true
+              }
+            },
+            Customer: {
+              select: {
+                name: true,
+                email: true
+              }
+            }
+          },
+          orderBy: {
+            feedbackDate: 'desc'
+          }
+        },
+        products: {
+          select: {
+            id: true,
+            title: true,
+            image: true,
+            asin: true
+          }
+        },
+        promotion: {
+          select: {
+            id: true,
+            title: true,
+            image: true,
+            promotionType: true
+          }
+        }
+      }
+    });
+
+    if (!campaign) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Campaign not found');
     }
-  });
+
+    return campaign;
+  } catch (error) {
+    console.error('Error getting campaign:', error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to get campaign');
+  }
 };
 
 /**
@@ -243,10 +290,70 @@ const deleteCampaignById = async (campaignId: number): Promise<void> => {
   });
 };
 
+/**
+ * Get campaigns for a company
+ * @param {number} companyId
+ * @returns {Promise<Campaign[]>}
+ */
+const getCompanyCampaigns = async (companyId: number): Promise<any[]> => {
+  try {
+    const campaigns = await prisma.campaign.findMany({
+      where: { companyId },
+      include: {
+        Reviews: {
+          include: {
+            Product: {
+              select: {
+                title: true,
+                image: true,
+                asin: true
+              }
+            },
+            Customer: {
+              select: {
+                name: true,
+                email: true
+              }
+            }
+          },
+          orderBy: {
+            feedbackDate: 'desc'
+          }
+        },
+        products: {
+          select: {
+            id: true,
+            title: true,
+            image: true,
+            asin: true
+          }
+        },
+        promotion: {
+          select: {
+            id: true,
+            title: true,
+            image: true,
+            promotionType: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    return campaigns;
+  } catch (error) {
+    console.error('Error getting company campaigns:', error);
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to get campaigns');
+  }
+};
+
 export default {
   createCampaign,
   queryCampaigns,
   getCampaignById,
   updateCampaignById,
-  deleteCampaignById
+  deleteCampaignById,
+  getCompanyCampaigns
 };

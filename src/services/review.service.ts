@@ -53,65 +53,69 @@ const createOrUpdateCustomer = async (customerData: {
  * @param {Object} reviewData
  * @returns {Promise<Review>}
  */
-const createReview = async (reviewData: {
-  email: string;
-  name: string;
-  productId: number;
-  ratio: number;
-  feedback: string;
-  marketplace: string;
-  orderNo?: string;
-  promotionId?: number;
-}): Promise<Review> => {
+const createReview = async (reviewBody: any): Promise<any> => {
   try {
-    // Validate required fields
     if (
-      !reviewData.email ||
-      !reviewData.name ||
-      !reviewData.productId ||
-      !reviewData.feedback ||
-      !reviewData.marketplace
+      !reviewBody.email ||
+      !reviewBody.name ||
+      !reviewBody.productId ||
+      !reviewBody.feedback ||
+      !reviewBody.marketplace
     ) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Missing required fields');
     }
 
-    // Validate and normalize ratio
     let ratio = 0;
-    if (reviewData.ratio !== undefined && reviewData.ratio !== null) {
-      ratio = parseFloat(String(reviewData.ratio));
+    if (reviewBody.ratio !== undefined && reviewBody.ratio !== null) {
+      ratio = parseFloat(String(reviewBody.ratio));
       if (isNaN(ratio)) {
         ratio = 0;
       }
     }
 
-    // Validate marketplace format
-    const marketplace = reviewData.marketplace.toUpperCase();
+    const marketplace = reviewBody.marketplace.toUpperCase();
     const validMarketplaces = Object.values(Marketplace);
-    if (!validMarketplaces.includes(marketplace as Marketplace)) {
+    if (!validMarketplaces.includes(marketplace)) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         `Invalid marketplace value. Must be one of: ${validMarketplaces.join(', ')}`
       );
     }
 
-    // Create or update customer first
+    // Create or update customer with the correct data structure
     const customer = await createOrUpdateCustomer({
-      email: reviewData.email,
-      name: reviewData.name,
+      email: reviewBody.email,
+      name: reviewBody.name,
       ratio: ratio
     });
+
+    // Get product with active campaigns
+    const product = await prisma.product.findUnique({
+      where: { id: reviewBody.productId },
+      include: {
+        Campaigns: {
+          where: {
+            isActive: 'YES'
+          }
+        }
+      }
+    });
+
+    if (!product) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Product not found');
+    }
 
     // Create review
     const review = await prisma.review.create({
       data: {
-        email: reviewData.email,
-        name: reviewData.name,
-        productId: reviewData.productId,
+        email: reviewBody.email,
+        name: reviewBody.name,
+        productId: reviewBody.productId,
         ratio: ratio,
-        feedback: reviewData.feedback,
+        feedback: reviewBody.feedback,
         marketplace: marketplace,
-        orderNo: reviewData.orderNo,
-        promotionId: reviewData.promotionId,
+        orderNo: reviewBody.orderNo,
+        promotionId: reviewBody.promotionId,
         customerId: customer.id,
         status: 'PENDING'
       },
@@ -123,7 +127,7 @@ const createReview = async (reviewData: {
 
     // Update product ratio
     await prisma.product.update({
-      where: { id: reviewData.productId },
+      where: { id: reviewBody.productId },
       data: {
         ratio: {
           increment: ratio
@@ -131,24 +135,35 @@ const createReview = async (reviewData: {
       }
     });
 
-    // Update company ratio if product has a company
-    const product = await prisma.product.findUnique({
-      where: { id: reviewData.productId },
-      include: { company: true }
-    });
+    // Update company statistics
+    if (product.companyId) {
+      await updateCompanyStatistics(product.companyId);
+    }
 
-    if (product?.company) {
-      await prisma.company.update({
-        where: { id: product.company.id },
+    // Update campaign statistics if review is associated with a campaign
+    if (reviewBody.campaignId) {
+      await prisma.campaign.update({
+        where: { id: reviewBody.campaignId },
         data: {
-          ratio: {
-            increment: ratio
-          },
-          reviews: {
+          claims: {
             increment: 1
           }
         }
       });
+    }
+
+    // Update any active campaigns associated with the product
+    if (product.Campaigns && product.Campaigns.length > 0) {
+      for (const campaign of product.Campaigns) {
+        await prisma.campaign.update({
+          where: { id: campaign.id },
+          data: {
+            claims: {
+              increment: 1
+            }
+          }
+        });
+      }
     }
 
     return review;
@@ -198,13 +213,27 @@ const getCompanyReviews = async (
             select: {
               title: true,
               image: true,
-              asin: true
+              asin: true,
+              Campaigns: {
+                select: {
+                  title: true,
+                  isActive: true,
+                  createdAt: true,
+                  updatedAt: true
+                }
+              }
             }
           },
           Customer: {
             select: {
               name: true,
               email: true
+            }
+          },
+          Promotion: {
+            select: {
+              title: true,
+              description: true
             }
           }
         },
@@ -245,6 +274,39 @@ const updateReviewStatus = async (
     console.error('Error updating review status:', error);
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to update review status');
   }
+};
+
+const updateProductRatio = async (productId: number): Promise<void> => {
+  const reviews = await prisma.review.findMany({
+    where: { Product: { id: productId } },
+    select: { ratio: true }
+  });
+
+  const totalRatio = reviews.reduce((sum, review) => sum + review.ratio, 0);
+  const averageRatio = reviews.length > 0 ? totalRatio / reviews.length : 0;
+
+  await prisma.product.update({
+    where: { id: productId },
+    data: { ratio: averageRatio }
+  });
+};
+
+const updateCompanyStatistics = async (companyId: number): Promise<void> => {
+  const reviews = await prisma.review.findMany({
+    where: { Product: { companyId } },
+    select: { ratio: true }
+  });
+
+  const totalRatio = reviews.reduce((sum, review) => sum + review.ratio, 0);
+  const averageRatio = reviews.length > 0 ? totalRatio / reviews.length : 0;
+
+  await prisma.company.update({
+    where: { id: companyId },
+    data: {
+      ratio: averageRatio,
+      reviews: { increment: 1 }
+    }
+  });
 };
 
 export const reviewService = {

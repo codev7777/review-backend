@@ -11,7 +11,8 @@ const createReviewSchema = Joi.object().keys({
     .required()
     .valid(...Object.values(Marketplace)),
   orderNo: Joi.string(),
-  promotionId: Joi.number().integer()
+  promotionId: Joi.number().integer(),
+  campaignId: Joi.number().integer()
 });
 
 export const validateCreateReview = (data: any) => {

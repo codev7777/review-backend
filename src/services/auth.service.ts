@@ -7,6 +7,7 @@ import prisma from '../client';
 import { encryptPassword, isPasswordMatch } from '../utils/encryption';
 import { AuthTokensResponse } from '../types/response';
 import exclude from '../utils/exclude';
+import * as bcrypt from 'bcrypt';
 
 /**
  * Login with username and password
@@ -18,30 +19,29 @@ const loginUserWithEmailAndPassword = async (
   email: string,
   password: string
 ): Promise<Omit<User, 'password'>> => {
-  const user = await userService.getUserByEmail(email, [
-    'id',
-    'email',
-    'name',
-    'password',
-    'role',
-    'isEmailVerified',
-    'createdAt',
-    'updatedAt',
-    'companyId'
-  ]);
-
-  if (!user || !(await isPasswordMatch(password, user.password as string))) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      password: true,
+      role: true,
+      isEmailVerified: true,
+      createdAt: true,
+      updatedAt: true,
+      companyId: true,
+      firstName: true,
+      lastName: true,
+      emailVerificationToken: true,
+      emailVerificationTokenExpires: true
+    }
+  });
+  if (!user || !(await bcrypt.compare(password, user.password))) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Incorrect email or password');
   }
-
-  if (!user.isEmailVerified) {
-    throw new ApiError(
-      httpStatus.UNAUTHORIZED,
-      'Please verify your email before logging in. Check your email for the verification link.'
-    );
-  }
-
-  return exclude(user, ['password']);
+  const userWithoutPassword = exclude(user, ['password']);
+  return userWithoutPassword as Omit<User, 'password'>;
 };
 
 /**

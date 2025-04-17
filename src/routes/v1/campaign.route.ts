@@ -17,4 +17,7 @@ router
   .patch(auth(), validate(campaignValidation.updateCampaign), campaignController.updateCampaign)
   .delete(auth(), validate(campaignValidation.deleteCampaign), campaignController.deleteCampaign);
 
+router.get('/:id', auth(), campaignController.getCampaignById);
+router.get('/company/:companyId', auth(), campaignController.getCompanyCampaigns);
+
 export default router;

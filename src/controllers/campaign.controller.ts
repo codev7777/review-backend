@@ -96,10 +96,40 @@ const deleteCampaign = catchAsync(async (req: Request, res: Response) => {
   res.status(httpStatus.NO_CONTENT).send();
 });
 
+const getCampaignById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const campaign = await campaignService.getCampaignById(Number(id));
+    res.status(httpStatus.OK).json(campaign);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      res.status(error.statusCode).json({ message: error.message });
+    } else {
+      res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to get campaign' });
+    }
+  }
+};
+
+const getCompanyCampaigns = async (req: Request, res: Response) => {
+  try {
+    const { companyId } = req.params;
+    const campaigns = await campaignService.getCompanyCampaigns(Number(companyId));
+    res.status(httpStatus.OK).json(campaigns);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      res.status(error.statusCode).json({ message: error.message });
+    } else {
+      res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to get campaigns' });
+    }
+  }
+};
+
 export default {
   createCampaign,
   getCampaigns,
   getCampaign,
   updateCampaign,
-  deleteCampaign
+  deleteCampaign,
+  getCampaignById,
+  getCompanyCampaigns
 };
