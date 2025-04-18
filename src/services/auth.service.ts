@@ -36,6 +36,10 @@ const loginUserWithEmailAndPassword = async (
   if (!user || !(await bcrypt.compare(password, user.password))) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Incorrect email or password');
   }
+  console.log(user.isEmailVerified);
+  if (!user.isEmailVerified) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, 'Please verify your email before logging in');
+  }
   const userWithoutPassword = exclude(user, ['password']);
   return userWithoutPassword as Omit<User, 'password'>;
 };
