@@ -2,7 +2,7 @@ import { Client } from 'node-mailjet';
 import httpStatus from 'http-status';
 import ApiError from '../utils/ApiError';
 import config from '../config/config';
-
+import { getFrontendUrl } from '../utils/url';
 const mailjet = new Client({
   apiKey: 'ef8405722e49209064a09000f1986414',
   apiSecret: 'e240eebd311af32c6bc1a241ba43de3c'
@@ -15,7 +15,7 @@ const mailjet = new Client({
  * @returns {Promise<void>}
  */
 const sendVerificationEmail = async (to: string, token: string): Promise<void> => {
-  const verificationUrl = `${config.frontendUrl}/verify-email?token=${token}`;
+  const verificationUrl = `${getFrontendUrl()}/verify-email?token=${token}`;
 
   try {
     await mailjet.post('send', { version: 'v3.1' }).request({
@@ -85,7 +85,7 @@ const sendVerificationEmail = async (to: string, token: string): Promise<void> =
 //   }
 // };
 const sendResetPasswordEmail = async (to: string, token: string): Promise<void> => {
-  const resetPasswordUrl = `${config.frontendUrl}/auth/reset-password?token=${token}`;
+  const resetPasswordUrl = `${getFrontendUrl()}/auth/reset-password?token=${token}`;
 
   try {
     await mailjet.post('send', { version: 'v3.1' }).request({
