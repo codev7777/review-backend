@@ -53,10 +53,12 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
 
 const verifyEmail = catchAsync(async (req: Request, res: Response) => {
   const { token } = req.query;
+  console.log(token);
   if (!token || typeof token !== 'string') {
+    console.log('-----------------');
     throw new ApiError(httpStatus.BAD_REQUEST, 'Verification token is required');
   }
-
+  console.log('+++++++++++++');
   await authService.verifyEmail(token);
   res.status(httpStatus.OK).send({ message: 'Email verified successfully' });
 });

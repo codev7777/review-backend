@@ -22,7 +22,7 @@ const envVarsSchema = Joi.object()
       .default(10)
       .description('minutes after which reset password token expires'),
     JWT_VERIFY_EMAIL_EXPIRATION_MINUTES: Joi.number()
-      .default(10)
+      .default(100)
       .description('minutes after which verify email token expires'),
     SMTP_HOST: Joi.string().description('server that will send the emails'),
     SMTP_PORT: Joi.number().description('port to connect to the email server'),

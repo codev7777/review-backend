@@ -67,6 +67,7 @@ const saveToken = async (
  */
 const verifyToken = async (token: string, type: TokenType): Promise<Token> => {
   const payload = jwt.verify(token, config.jwt.secret);
+  console.log('payload      ', payload);
   const userId = Number(payload.sub);
   const tokenData = await prisma.token.findFirst({
     where: { token, type, userId, blacklisted: false }

@@ -15,7 +15,7 @@ const mailjet = new Client({
  * @returns {Promise<void>}
  */
 const sendVerificationEmail = async (to: string, token: string): Promise<void> => {
-  const verificationUrl = `${config.frontendUrl}/auth/verify-email?token=${token}`;
+  const verificationUrl = `${config.frontendUrl}/verify-email?token=${token}`;
 
   try {
     await mailjet.post('send', { version: 'v3.1' }).request({
