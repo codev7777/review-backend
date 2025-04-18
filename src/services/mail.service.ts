@@ -86,7 +86,7 @@ const sendVerificationEmail = async (to: string, token: string): Promise<void> =
 // };
 const sendResetPasswordEmail = async (to: string, token: string): Promise<void> => {
   const resetPasswordUrl = `${getFrontendUrl()}/auth/reset-password?token=${token}`;
-
+  console.log(resetPasswordUrl);
   try {
     await mailjet.post('send', { version: 'v3.1' }).request({
       Messages: [
