@@ -16,7 +16,7 @@ const register = catchAsync(async (req: Request, res: Response) => {
 
   // Create verification token
   const token = await tokenService.generateVerifyEmailToken(user);
-  await mailService.sendVerificationEmail(user.email, token);
+  await mailService.sendVerificationEmail(user.email, token, name);
 
   res.status(httpStatus.CREATED).send({
     message: 'Registration successful. Please check your email to verify your account.'
@@ -55,16 +55,14 @@ const verifyEmail = catchAsync(async (req: Request, res: Response) => {
   const { token } = req.query;
   console.log(token);
   if (!token || typeof token !== 'string') {
-    console.log('-----------------');
     throw new ApiError(httpStatus.BAD_REQUEST, 'Verification token is required');
   }
-  console.log('+++++++++++++');
   await authService.verifyEmail(token);
   res.status(httpStatus.OK).send({ message: 'Email verified successfully' });
 });
 
 const resendVerificationEmail = catchAsync(async (req: Request, res: Response) => {
-  const { email } = req.body;
+  const { email, name } = req.body;
   if (!email) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email is required');
   }
@@ -75,7 +73,7 @@ const resendVerificationEmail = catchAsync(async (req: Request, res: Response) =
   }
 
   const verificationToken = await tokenService.generateVerifyEmailToken(user);
-  await mailService.sendVerificationEmail(email, verificationToken);
+  await mailService.sendVerificationEmail(email, verificationToken, name);
 
   res.status(httpStatus.OK).send({
     message: 'Verification email has been resent. Please check your email.'
@@ -85,7 +83,10 @@ const resendVerificationEmail = catchAsync(async (req: Request, res: Response) =
 const sendVerificationEmail = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as User;
   const verificationToken = await tokenService.generateVerifyEmailToken(user);
-  await mailService.sendVerificationEmail(user.email, verificationToken);
+  if (!user.email || !user.name) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'User email and name are required');
+  }
+  await mailService.sendVerificationEmail(user.email, verificationToken, user.name);
   res.status(httpStatus.NO_CONTENT).send();
 });
 

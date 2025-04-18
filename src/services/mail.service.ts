@@ -3,6 +3,7 @@ import httpStatus from 'http-status';
 import ApiError from '../utils/ApiError';
 import config from '../config/config';
 import { getFrontendUrl } from '../utils/url';
+import userService from './user.service';
 const mailjet = new Client({
   apiKey: 'ef8405722e49209064a09000f1986414',
   apiSecret: 'e240eebd311af32c6bc1a241ba43de3c'
@@ -14,7 +15,7 @@ const mailjet = new Client({
  * @param {string} token
  * @returns {Promise<void>}
  */
-const sendVerificationEmail = async (to: string, token: string): Promise<void> => {
+const sendVerificationEmail = async (to: string, token: string, name: string): Promise<void> => {
   const verificationUrl = `${getFrontendUrl()}/verify-email?token=${token}`;
 
   try {
@@ -35,7 +36,8 @@ const sendVerificationEmail = async (to: string, token: string): Promise<void> =
           TemplateLanguage: true,
           Subject: 'Verify your email address',
           Variables: {
-            verification_url: verificationUrl
+            verification_url: verificationUrl,
+            name: name
           }
         }
       ]
@@ -85,6 +87,8 @@ const sendVerificationEmail = async (to: string, token: string): Promise<void> =
 //   }
 // };
 const sendResetPasswordEmail = async (to: string, token: string): Promise<void> => {
+  const user = await userService.getUserByEmail(to);
+  let name = user?.name;
   const resetPasswordUrl = `${getFrontendUrl()}/auth/reset-password?token=${token}`;
   console.log(resetPasswordUrl);
   try {
@@ -98,14 +102,14 @@ const sendResetPasswordEmail = async (to: string, token: string): Promise<void> 
           To: [
             {
               Email: to,
-              Name: to.split('@')[0]
+              Name: name
             }
           ],
           Subject: 'Reset your password',
           TextPart: `
-          Dear Customer!
+          Dear ${name}!
           
-          Thank you for choosing ReviewBrothers! Please confirm your email address to help us ensure your account is always protected.
+          Thank you for choosing ReviewBrothers! <br /> Please confirm your email address to help us ensure your account is always protected.
           
           Click here to confirm: ${resetPasswordUrl}
           
@@ -115,12 +119,12 @@ const sendResetPasswordEmail = async (to: string, token: string): Promise<void> 
           ReviewBrothers team
           `,
           HTMLPart: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto;">
+          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; text-black">
             <div style="text-align: center; margin-bottom: 20px;">
               <img src="https://i.ibb.co/zhx5Wy7K/11.png" alt="Review Brothers" style="max-width: 100%; height: auto; border-radius: 8px;" />
             </div>
-            <h2 style="text-align: left; color: #232f3e;">Dear Customer!</h2>
-            <p>
+            <h2 style="text-align: left; color: black;">Dear ${name}!</h2>
+            <p style="color: black;">
               Thank you for choosing <strong>ReviewBrothers</strong>! Please confirm your email address to help us ensure your account is always protected.
             </p>
             <div style="text-align: center; margin: 30px 0;">
@@ -131,7 +135,7 @@ const sendResetPasswordEmail = async (to: string, token: string): Promise<void> 
                 Confirm Email
               </a>
             </div>
-            <p>
+            <p style="color: black;">
               For further technical questions and support, please contact us at 
               <a href="mailto:info@reviewbrothers.com">info@reviewbrothers.com</a>.
               We are looking forward to cooperating with you!

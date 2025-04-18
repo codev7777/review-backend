@@ -50,7 +50,7 @@ If you did not request any password resets, then ignore this email.`;
  * @param {string} token
  * @returns {Promise}
  */
-const sendVerificationEmail = async (to: string, token: string) => {
+const sendVerificationEmail = async (to: string, token: string, name: string) => {
   const subject = 'Email Verification';
   const verificationEmailUrl = getFrontendPath(`/auth/verify-email?token=${token}`);
   const text = `Dear user,
