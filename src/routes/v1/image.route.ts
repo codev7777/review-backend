@@ -7,6 +7,9 @@ import auth from '../../middlewares/auth';
 
 const router = express.Router();
 
+const isProduction = process.env.NODE_ENV === 'production';
+const UPLOAD_DIR = isProduction ? '/var/www/uploads' : path.join(__dirname, '../../../uploads');
+
 /**
  * Get image by filename
  * @route GET /v1/images/:filename
@@ -14,8 +17,7 @@ const router = express.Router();
 router.get('/:filename', auth(), async (req, res, next) => {
   try {
     const { filename } = req.params;
-    const uploadsDir = path.join(__dirname, '../../../uploads');
-    const filePath = path.join(uploadsDir, filename);
+    const filePath = path.join(UPLOAD_DIR, filename);
 
     // Check if file exists
     if (!fs.existsSync(filePath)) {

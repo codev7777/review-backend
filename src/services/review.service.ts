@@ -140,6 +140,24 @@ const getCompanyReviews = async (
       where.status = status as Review['status'];
     }
 
+    // Validate and set sort field
+    const validSortFields = ['feedbackDate', 'ratio', 'status', 'createdAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'feedbackDate';
+
+    // Special handling for ratio sorting
+    let orderBy: Prisma.ReviewOrderByWithRelationInput;
+    if (sortField === 'ratio') {
+      // For ratio sorting, we'll use a compound sort to handle nulls
+      orderBy = {
+        ratio: sortOrder,
+        feedbackDate: 'desc' // Secondary sort by feedback date
+      };
+    } else {
+      orderBy = {
+        [sortField]: sortOrder
+      };
+    }
+
     const [reviews, total] = await Promise.all([
       prisma.review.findMany({
         where,
@@ -180,14 +198,22 @@ const getCompanyReviews = async (
             }
           }
         },
-        orderBy: {
-          feedbackDate: 'desc'
-        },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit
       }),
       prisma.review.count({ where })
     ]);
+
+    // Post-process the results to handle null ratios
+    if (sortField === 'ratio') {
+      reviews.sort((a, b) => {
+        if (a.ratio === null && b.ratio === null) return 0;
+        if (a.ratio === null) return 1;
+        if (b.ratio === null) return -1;
+        return sortOrder === 'desc' ? b.ratio - a.ratio : a.ratio - b.ratio;
+      });
+    }
 
     return { reviews, total };
   } catch (error) {

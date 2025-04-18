@@ -40,6 +40,9 @@ app.use(compression());
 app.use(cors());
 app.options('*', cors());
 
+const isProduction = process.env.NODE_ENV === 'production';
+const UPLOAD_DIR = isProduction ? '/var/www/uploads' : path.join(__dirname, '../uploads');
+
 // Serve static files from uploads directory with CORS headers
 app.use(
   '/uploads',
@@ -49,7 +52,7 @@ app.use(
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     next();
   },
-  express.static(path.join(__dirname, '../uploads'))
+  express.static(UPLOAD_DIR)
 );
 
 // jwt authentication
