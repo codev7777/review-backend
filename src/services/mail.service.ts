@@ -123,25 +123,31 @@ const sendResetPasswordEmail = async (to: string, token: string): Promise<void> 
             <div style="text-align: center; margin-bottom: 20px;">
               <img src="https://i.ibb.co/zhx5Wy7K/11.png" alt="Review Brothers" style="max-width: 100%; height: auto; border-radius: 8px;" />
             </div>
-            <h2 style="text-align: left; color: black;">Dear ${name}!</h2>
+            <h2 style="text-align: left; color: black;">Reset your password!</h2>
             <p style="color: black;">
-              Thank you for choosing <strong>ReviewBrothers</strong>! Please confirm your email address to help us ensure your account is always protected.
+              Hi ${name}!
+              <br />  <br /> <br />
+              We received a request to reset the password for your <strong>ReviewBrothers</strong> account.
+              <br /><br />
+              To proceed, simply click the button below and follow the instructions to set a new password: 
             </p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${resetPasswordUrl}" 
                 style="display: inline-block; padding: 16px 36px; background-color: #232f3e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; transition: background-color 0.3s ease;"
                 onmouseover="this.style.backgroundColor='#f97316'"
                 onmouseout="this.style.backgroundColor='#232f3e'">
-                Confirm Email
+                Reset My Password
               </a>
             </div>
             <p style="color: black;">
-              For further technical questions and support, please contact us at 
-              <a href="mailto:info@reviewbrothers.com">info@reviewbrothers.com</a>.
-              We are looking forward to cooperating with you!
+              If you didn't make this request, you can safely ignore this email. Your current password will remain unchanged. 
+              <br /><br />  
+              Need help or have questions? Contact us at <a href="mailto:info@reviewbrothers.com">info@reviewbrothers.com</a> - 
+              we're happy to assist.
+              <br />
             </p>
             <p style="margin-top: 40px;">
-              Best Regards,<br />
+              Best Regards,<br /><br />
               <strong>ReviewBrothers team</strong>
             </p>
           </div>

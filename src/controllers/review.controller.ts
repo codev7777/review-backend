@@ -66,6 +66,8 @@ const createReview = async (req: Request, res: Response) => {
 
     // Create the review with validated data
     const review = await reviewService.createReview(validatedData);
+    await reviewService.updateCampaignStatistics(parseInt(req.body.campaignId, 10));
+    await reviewService.updateCompanyStatistics(parseInt(req.body.campaignId, 10));
     res.status(httpStatus.CREATED).send(review);
   } catch (error) {
     console.error('Error creating review:', error);
@@ -113,6 +115,7 @@ const updateReviewStatus = async (req: Request, res: Response) => {
     const { status } = validateReviewUpdate(req.body);
 
     const review = await reviewService.updateReviewStatus(Number(reviewId), status);
+    console.log(req.body.campaignId);
     res.json(review);
   } catch (error) {
     console.error('Error updating review status:', error);

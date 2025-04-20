@@ -277,10 +277,34 @@ const updateCompanyStatistics = async (companyId: number): Promise<void> => {
     }
   });
 };
-
+const updateCampaignStatistics = async (campaignId: number): Promise<void> => {
+  const reviews = await prisma.review.findMany({
+    where: {
+      campaignId: campaignId
+    },
+    select: {
+      ratio: true
+    }
+  });
+  const totalRatio = reviews.reduce((sum, review) => sum + review.ratio, 0);
+  const totalReviews = reviews.length;
+  const averageRatio = reviews.length > 0 ? totalRatio / reviews.length : 0;
+  console.log(reviews.length);
+  console.log(totalRatio);
+  console.log(averageRatio);
+  await prisma.campaign.update({
+    where: { id: campaignId },
+    data: {
+      ratio: averageRatio,
+      claims: totalReviews
+    }
+  });
+};
 export const reviewService = {
   createReview,
   createOrUpdateCustomer,
   getCompanyReviews,
-  updateReviewStatus
+  updateReviewStatus,
+  updateCampaignStatistics,
+  updateCompanyStatistics
 };
