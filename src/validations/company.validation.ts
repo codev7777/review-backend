@@ -21,6 +21,7 @@ const getCompanies = {
   query: Joi.object().keys({
     name: Joi.string(),
     sortBy: Joi.string(),
+    sortType: Joi.string().valid('asc', 'desc').default('asc'),
     limit: Joi.number().integer(),
     page: Joi.number().integer(),
     search: Joi.string().allow('')

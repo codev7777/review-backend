@@ -39,9 +39,11 @@ const getCompanies = catchAsync(async (req: Request, res: Response) => {
   }
 
   // Pagination, sorting, etc.
+  console.log(1);
   const options = pick(req.query, ['sortBy', 'sortType', 'limit', 'page']);
+  console.log(2);
   const { companies, totalCount } = await companyService.queryCompanies(filter, options);
-
+  console.log(3);
   const limit = Number(options.limit) || 10;
   const totalPages = Math.ceil(totalCount / limit);
 
