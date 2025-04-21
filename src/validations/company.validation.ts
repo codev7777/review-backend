@@ -22,7 +22,8 @@ const getCompanies = {
     name: Joi.string(),
     sortBy: Joi.string(),
     limit: Joi.number().integer(),
-    page: Joi.number().integer()
+    page: Joi.number().integer(),
+    search: Joi.string().allow('')
   })
 };
 

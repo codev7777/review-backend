@@ -25,9 +25,23 @@ const createCompany = catchAsync(async (req, res) => {
 });
 
 const getCompanies = catchAsync(async (req: Request, res: Response) => {
-  const filter = pick(req.query, ['name', 'role']);
+  // Build filter manually to support 'search'
+  const filter: any = {};
+
+  // If 'search' is provided, use it to filter by company name (case-insensitive, partial match)
+  if (req.query.search) {
+    filter.name = { contains: req.query.search as string, mode: 'insensitive' };
+  }
+
+  // Add additional filters if needed (e.g., role)
+  if (req.query.role) {
+    filter.role = req.query.role;
+  }
+
+  // Pagination, sorting, etc.
   const options = pick(req.query, ['sortBy', 'sortType', 'limit', 'page']);
   const { companies, totalCount } = await companyService.queryCompanies(filter, options);
+
   const limit = Number(options.limit) || 10;
   const totalPages = Math.ceil(totalCount / limit);
 
