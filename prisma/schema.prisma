@@ -8,39 +8,40 @@ datasource db {
 }
 
 model User {
-  id                Int       @id @default(autoincrement())
-  email             String    @unique
-  name              String?
-  password          String
-  firstName         String?
-  lastName          String?
-  role              Role      @default(USER)
-  isEmailVerified   Boolean   @default(false)
-  emailVerificationToken String?
+  id                            Int       @id @default(autoincrement())
+  email                         String    @unique
+  name                          String?
+  password                      String
+  firstName                     String?
+  lastName                      String?
+  role                          Role      @default(USER)
+  isEmailVerified               Boolean   @default(false)
+  emailVerificationToken        String?
   emailVerificationTokenExpires DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  companyId         Int?
-  Token             Token[]
-  company           Company?  @relation(fields: [companyId], references: [id])
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
+  companyId                     Int?
+  Token                         Token[]
+  company                       Company?  @relation(fields: [companyId], references: [id])
 }
 
 model Company {
-  id          Int      @id @default(autoincrement())
-  name        String?
-  detail      String?
-  logo        String?
-  websiteUrl  String?
-  planId      Int?
-  ratio       Float?      @default(0)
-  reviews     Int?        @default(0)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  Plan        Plan?       @relation(fields: [planId], references: [id])
-  Products    Product[]
-  Promotions  Promotion[]
-  Users       User[]
-  campaigns   Campaign[]
+  id            Int            @id @default(autoincrement())
+  name          String?
+  detail        String?
+  logo          String?
+  websiteUrl    String?
+  planId        Int?
+  ratio         Float?         @default(0)
+  reviews       Int?           @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  Plan          Plan?          @relation(fields: [planId], references: [id])
+  Products      Product[]
+  Promotions    Promotion[]
+  Users         User[]
+  campaigns     Campaign[]
+  Subscriptions Subscription[] // <-- Add this line
 }
 
 model Category {
@@ -53,41 +54,42 @@ model Category {
 }
 
 model Product {
-  id          Int      @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   title       String
   description String
   image       String
-  asin        String?  @unique
-  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  asin        String?    @unique
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId   Int
-  ratio       Float    @default(0)
+  ratio       Float      @default(0)
   categoryId  Int
-  category    Category @relation(fields: [categoryId], references: [id])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  category    Category   @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   Reviews     Review[]
   Campaigns   Campaign[]
+
   @@index([companyId])
 }
 
 model Review {
-  id          Int      @id @default(autoincrement())
-  email       String
-  name        String
-  productId   Int
-  ratio       Float
-  feedback    String
-  marketplace String
-  customerId  Int
-  orderNo     String?
-  feedbackDate DateTime @default(now())
-  promotionId Int?
-  campaignId  Int?
-  status      ReviewStatus @default(PENDING)
-  Customer    Customer @relation(fields: [customerId], references: [id])
-  Product     Product  @relation(fields: [productId], references: [id])
-  Promotion   Promotion? @relation(fields: [promotionId], references: [id])
-  Campaign    Campaign? @relation(fields: [campaignId], references: [id])
+  id           Int          @id @default(autoincrement())
+  email        String
+  name         String
+  productId    Int
+  ratio        Float
+  feedback     String
+  marketplace  String
+  customerId   Int
+  orderNo      String?
+  feedbackDate DateTime     @default(now())
+  promotionId  Int?
+  campaignId   Int?
+  status       ReviewStatus @default(PENDING)
+  Customer     Customer     @relation(fields: [customerId], references: [id])
+  Product      Product      @relation(fields: [productId], references: [id])
+  Promotion    Promotion?   @relation(fields: [promotionId], references: [id])
+  Campaign     Campaign?    @relation(fields: [campaignId], references: [id])
 }
 
 model Customer {
@@ -100,44 +102,45 @@ model Customer {
 }
 
 model Plan {
-  id          Int       @id @default(autoincrement())
-  name        String
-  price       Float
-  description String?
-  planType    PlanType  @default(GOLD)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  Companies   Company[]
+  id            Int            @id @default(autoincrement())
+  name          String
+  price         Float
+  description   String?
+  planType      PlanType       @default(GOLD)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  Companies     Company[]
+  Subscriptions Subscription[] // <-- Add this line
 }
 
 model Promotion {
-  id               Int           @id @default(autoincrement())
-  title            String
-  image            String
-  promotionType    PromotionType
-  description      String
-  company          Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId        Int
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  Campaigns        Campaign[]
-  Reviews          Review[]
+  id            Int           @id @default(autoincrement())
+  title         String
+  image         String
+  promotionType PromotionType
+  description   String
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId     Int
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  Campaigns     Campaign[]
+  Reviews       Review[]
 
   // GIFT_CARD specific fields
-  giftCardDeliveryMethod DeliveryMethod?  // SHIP or DIGITAL
-  
+  giftCardDeliveryMethod DeliveryMethod? // SHIP or DIGITAL
+
   // DISCOUNT_CODE specific fields
-  approvalMethod       ApprovalMethod?  // MANUAL or AUTOMATIC
-  codeType             CodeType?        // SAME_FOR_ALL or SINGLE_USE
-  couponCodes          String[]         // Array of coupon codes
-  
+  approvalMethod ApprovalMethod? // MANUAL or AUTOMATIC
+  codeType       CodeType? // SAME_FOR_ALL or SINGLE_USE
+  couponCodes    String[] // Array of coupon codes
+
   // FREE_PRODUCT specific fields (fixed as per your requirement)
-  freeProductDeliveryMethod DeliveryMethod?  @default(SHIP)
+  freeProductDeliveryMethod DeliveryMethod? @default(SHIP)
   freeProductApprovalMethod ApprovalMethod? @default(MANUAL)
 
   // DIGITAL_DOWNLOAD specific fields
-  downloadableFileUrl      String?         // URL or path to the downloadable file
-  digitalApprovalMethod    ApprovalMethod? // MANUAL or AUTOMATIC
+  downloadableFileUrl   String? // URL or path to the downloadable file
+  digitalApprovalMethod ApprovalMethod? // MANUAL or AUTOMATIC
 
   @@index([companyId])
 }
@@ -234,22 +237,67 @@ enum ReviewStatus {
 }
 
 model Campaign {
-  id          Int       @id @default(autoincrement())
-  title       String
-  isActive    CampaignStatus @default(YES)
-  promotion   Promotion @relation(fields: [promotionId], references: [id])
-  promotionId Int
-  products    Product[]
+  id           Int            @id @default(autoincrement())
+  title        String
+  isActive     CampaignStatus @default(YES)
+  promotion    Promotion      @relation(fields: [promotionId], references: [id])
+  promotionId  Int
+  products     Product[]
   marketplaces Marketplace[]
-  claims      Int       @default(0)
-  ratio       Float     @default(0)
-  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId   Int
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  productIds  Int[]
-  Reviews     Review[]
+  claims       Int            @default(0)
+  ratio        Float          @default(0)
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId    Int
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  productIds   Int[]
+  Reviews      Review[]
 
   @@index([companyId])
   @@index([promotionId])
+}
+
+model Subscription {
+  id                Int                @id @default(autoincrement())
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId         Int
+  plan              Plan               @relation(fields: [planId], references: [id])
+  planId            Int
+  status            SubscriptionStatus @default(ACTIVE)
+  startDate         DateTime           @default(now())
+  endDate           DateTime?
+  cancelAtPeriodEnd Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  Payments Payment[]
+
+  @@index([companyId])
+  @@index([planId])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+  TRIALING
+  PAST_DUE
+}
+
+model Payment {
+  id             Int           @id @default(autoincrement())
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id])
+  subscriptionId Int
+  amount         Float
+  currency       String        @default("USD")
+  status         PaymentStatus @default(SUCCESS)
+  paidAt         DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  PENDING
 }
