@@ -27,6 +27,44 @@ interface QueryResult {
 }
 
 /**
+ * Check if a company can create more promotions based on their subscription plan
+ * @param {number} companyId - The company ID
+ * @returns {Promise<boolean>} - Returns true if the company can create more promotions
+ */
+const canCreateMorePromotions = async (companyId: number): Promise<boolean> => {
+  // Get the company's subscription
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    include: {
+      Plan: true
+    }
+  });
+
+  if (!company || !company.Plan) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Company does not have an active subscription plan');
+  }
+
+  // Get the current number of promotions
+  const promotionsCount = await prisma.promotion.count({
+    where: {
+      companyId
+    }
+  });
+
+  // Check limits based on plan
+  switch (company.Plan.planType) {
+    case 'SILVER':
+      return promotionsCount < 1;
+    case 'GOLD':
+      return promotionsCount < 10;
+    case 'PLATINUM':
+      return true; // Unlimited promotions
+    default:
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid subscription plan');
+  }
+};
+
+/**
  * Create a promotion
  * @param {any} promotionBody
  * @returns {Promise<Prisma.PromotionGetPayload<{ include: { company: true } }>>}
@@ -34,6 +72,28 @@ interface QueryResult {
 const createPromotion = async (
   promotionBody: any
 ): Promise<Prisma.PromotionGetPayload<{ include: { company: true } }>> => {
+  // Check if company can create more promotions
+  const canCreate = await canCreateMorePromotions(promotionBody.companyId);
+  if (!canCreate) {
+    const company = await prisma.company.findUnique({
+      where: { id: promotionBody.companyId },
+      include: { Plan: true }
+    });
+
+    let upgradeMessage = '';
+    if (company?.Plan?.planType === 'SILVER') {
+      upgradeMessage =
+        'Upgrade to GOLD plan for up to 10 promotions or PLATINUM plan for unlimited promotions.';
+    } else if (company?.Plan?.planType === 'GOLD') {
+      upgradeMessage = 'Upgrade to PLATINUM plan for unlimited promotions.';
+    }
+
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      `You have reached the maximum number of promotions allowed by your ${company?.Plan?.planType} plan. ${upgradeMessage}`
+    );
+  }
+
   // Handle image upload
   let imageUrl = promotionBody.image;
   if (promotionBody.image && promotionBody.image.startsWith('data:image')) {

@@ -20,11 +20,71 @@ interface FilterOptions {
 }
 
 /**
+ * Check if a company can create more products based on their subscription plan
+ * @param {number} companyId - The company ID
+ * @returns {Promise<boolean>} - Returns true if the company can create more products
+ */
+const canCreateMoreProducts = async (companyId: number): Promise<boolean> => {
+  // Get the company's subscription
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    include: {
+      Plan: true
+    }
+  });
+
+  if (!company || !company.Plan) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Company does not have an active subscription plan');
+  }
+
+  // Get the current number of products
+  const productsCount = await prisma.product.count({
+    where: {
+      companyId
+    }
+  });
+
+  // Check limits based on plan
+  switch (company.Plan.planType) {
+    case 'SILVER':
+      return productsCount < 1;
+    case 'GOLD':
+      return productsCount < 30;
+    case 'PLATINUM':
+      return true; // Unlimited products
+    default:
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid subscription plan');
+  }
+};
+
+/**
  * Create a product
  * @param {any} productBody
  * @returns {Promise<Product>}
  */
 const createProduct0 = async (productBody: any): Promise<Product> => {
+  // Check if company can create more products
+  const canCreate = await canCreateMoreProducts(productBody.companyId);
+  if (!canCreate) {
+    const company = await prisma.company.findUnique({
+      where: { id: productBody.companyId },
+      include: { Plan: true }
+    });
+
+    let upgradeMessage = '';
+    if (company?.Plan?.planType === 'SILVER') {
+      upgradeMessage =
+        'Upgrade to GOLD plan for up to 30 products or PLATINUM plan for unlimited products.';
+    } else if (company?.Plan?.planType === 'GOLD') {
+      upgradeMessage = 'Upgrade to PLATINUM plan for unlimited products.';
+    }
+
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      `You have reached the maximum number of products allowed by your ${company?.Plan?.planType} plan. ${upgradeMessage}`
+    );
+  }
+
   // Check if ASIN is provided and validate its format
   if (productBody.asin) {
     const asinRegex = /^[A-Z0-9]{10}$/;

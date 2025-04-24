@@ -6,20 +6,110 @@ import { saveCampaignImage, deleteImage } from '../utils/fileUpload';
 const prisma = new PrismaClient() as any;
 
 /**
+ * Check if a company can create more campaigns based on their subscription plan
+ * @param {number} companyId - The company ID
+ * @returns {Promise<boolean>} - Returns true if the company can create more campaigns
+ */
+const canCreateMoreCampaigns = async (companyId: number): Promise<boolean> => {
+  // Get the company's subscription
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    include: {
+      Plan: true
+    }
+  });
+
+  if (!company || !company.Plan) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Company does not have an active subscription plan');
+  }
+
+  // Get the current number of active campaigns
+  const activeCampaignsCount = await prisma.campaign.count({
+    where: {
+      companyId,
+      isActive: 'YES'
+    }
+  });
+
+  // Check limits based on plan
+  switch (company.Plan.planType) {
+    case 'SILVER':
+      return activeCampaignsCount < 1;
+    case 'GOLD':
+    case 'PLATINUM':
+    case 'PLATIUM': // Handle both spellings
+      return true; // Unlimited campaigns
+    default:
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid subscription plan');
+  }
+};
+
+/**
+ * Check if a company can select more marketplaces based on their subscription plan
+ * @param {number} companyId - The company ID
+ * @param {number} selectedMarketplacesCount - Number of marketplaces being selected
+ * @returns {Promise<boolean>} - Returns true if the company can select more marketplaces
+ */
+const canSelectMoreMarketplaces = async (
+  companyId: number,
+  selectedMarketplacesCount: number
+): Promise<boolean> => {
+  // Get the company's subscription
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    include: {
+      Plan: true
+    }
+  });
+
+  if (!company || !company.Plan) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Company does not have an active subscription plan');
+  }
+
+  // Check limits based on plan
+  switch (company.Plan.planType) {
+    case 'SILVER':
+      return selectedMarketplacesCount <= 1; // SILVER plan: 1 marketplace
+    case 'GOLD':
+    case 'PLATINUM':
+      return true; // GOLD and PLATINUM plans: unlimited marketplaces
+    default:
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid subscription plan');
+  }
+};
+
+/**
  * Create a campaign
  * @param {Object} campaignBody
  * @returns {Promise<any>}
  */
 const createCampaign = async (campaignBody: any): Promise<any> => {
-  // console.log('Received campaign body:', JSON.stringify(campaignBody, null, 2));
+  // Check if company can create more campaigns
+  const canCreate = await canCreateMoreCampaigns(campaignBody.companyId);
+  if (!canCreate) {
+    const company = await prisma.company.findUnique({
+      where: { id: campaignBody.companyId },
+      include: { Plan: true }
+    });
+
+    let upgradeMessage = '';
+    if (company?.Plan?.planType === 'SILVER') {
+      upgradeMessage = 'Upgrade to GOLD or PLATINUM plan for unlimited campaigns.';
+    } else if (company?.Plan?.planType === 'GOLD') {
+      upgradeMessage = 'Upgrade to PLATINUM plan for additional features.';
+    }
+
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      `You have reached the maximum number of campaigns allowed by your ${company?.Plan?.planType} plan. ${upgradeMessage}`
+    );
+  }
 
   // Handle productIds - convert string to array if needed
   let productIds = campaignBody.productIds;
   if (typeof productIds === 'string') {
     productIds = productIds.split(',').map((id) => parseInt(id.trim(), 10));
-    // console.log('Converted productIds string to array:', productIds);
   } else if (!Array.isArray(productIds)) {
-    console.error('productIds is not an array or string:', productIds);
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       '"productIds" must be an array or comma-separated string'
@@ -30,12 +120,32 @@ const createCampaign = async (campaignBody: any): Promise<any> => {
   let marketplaces = campaignBody.marketplaces;
   if (typeof marketplaces === 'string') {
     marketplaces = marketplaces.split(',').map((m) => m.trim());
-    // console.log('Converted marketplaces string to array:', marketplaces);
   } else if (!Array.isArray(marketplaces)) {
-    console.error('marketplaces is not an array or string:', marketplaces);
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       '"marketplaces" must be an array or comma-separated string'
+    );
+  }
+
+  // Check marketplace limits
+  const canSelectMore = await canSelectMoreMarketplaces(
+    campaignBody.companyId,
+    marketplaces.length
+  );
+  if (!canSelectMore) {
+    const company = await prisma.company.findUnique({
+      where: { id: campaignBody.companyId },
+      include: { Plan: true }
+    });
+
+    let upgradeMessage = '';
+    if (company?.Plan?.planType === 'SILVER') {
+      upgradeMessage = 'Upgrade to GOLD or PLATINUM plan for unlimited marketplaces.';
+    }
+
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      `You have reached the maximum number of marketplaces allowed by your ${company?.Plan?.planType} plan. ${upgradeMessage}`
     );
   }
 
@@ -46,10 +156,6 @@ const createCampaign = async (campaignBody: any): Promise<any> => {
   }
 
   const { ...rest } = campaignBody;
-
-  // console.log('Final productIds:', productIds);
-  // console.log('Final marketplaces:', marketplaces);
-  // console.log('Rest of the data:', rest);
 
   try {
     const result = await prisma.campaign.create({
@@ -69,7 +175,6 @@ const createCampaign = async (campaignBody: any): Promise<any> => {
       }
     });
 
-    console.log('Campaign created successfully:', result);
     return result;
   } catch (error) {
     console.error('Error creating campaign:', error);
