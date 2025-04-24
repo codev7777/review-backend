@@ -1,0 +1,51 @@
+{
+  "SILVER": {
+    "productId": "prod_SBVfY2gMLcWDgC",
+    "monthlyPriceId": "price_1RH8eXPuMpDKUxfQN4XUH99L",
+    "annualPriceId": "price_1RH8eYPuMpDKUxfQctBUsc7f",
+    "features": {
+      "Unlimited Reviews": "true",
+      "Unlimited Leads": "true",
+      "1 Campaign": "true",
+      "1 Promotion": "true",
+      "1 Product": "true",
+      "1 Marketplace": "true",
+      "Collect Seller Feedback": "false",
+      "Meta Pixel Support": "false",
+      "Business Features": "false"
+    }
+  },
+  "GOLD": {
+    "productId": "prod_SBVfbbVH3qg1Bj",
+    "monthlyPriceId": "price_1RH8eZPuMpDKUxfQAWOjGe19",
+    "annualPriceId": "price_1RH8eaPuMpDKUxfQfp9IyqbY",
+    "features": {
+      "Unlimited Reviews": "true",
+      "Unlimited Leads": "true",
+      "Unlimited Campaigns": "true",
+      "10 Promotions": "true",
+      "30 Products": "true",
+      "All Marketplaces": "true",
+      "Collect Seller Feedback": "true",
+      "Personalized Branding": "true",
+      "Meta Pixel Support": "true"
+    }
+  },
+  "PLATIUM": {
+    "productId": "prod_SBVf6fTpHNVpkp",
+    "monthlyPriceId": "price_1RH8ecPuMpDKUxfQhtgExI7J",
+    "annualPriceId": "price_1RH8ecPuMpDKUxfQ1NHyu8Hr",
+    "features": {
+      "Unlimited Reviews": "true",
+      "Unlimited Leads": "true",
+      "Unlimited Campaigns": "true",
+      "Unlimited Promotions": "true",
+      "Unlimited Products": "true",
+      "All Marketplaces": "true",
+      "Collect Seller Feedback": "true",
+      "Personalized Branding": "true",
+      "Meta Pixel Support": "true",
+      "Multiple Sub-Accounts": "true"
+    }
+  }
+}

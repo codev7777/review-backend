@@ -38,14 +38,19 @@ const createUser = async (
     }
   });
 
+  const userData = {
+    email,
+    name,
+    password: await encryptPassword(password),
+    role,
+    companyId: company.id,
+    isEmailVerified: false,
+    emailVerificationToken: null,
+    emailVerificationTokenExpires: null
+  } satisfies Prisma.UserUncheckedCreateInput;
+
   return prisma.user.create({
-    data: {
-      email,
-      name,
-      password: await encryptPassword(password),
-      role,
-      companyId: company.id // Associate the user with the new company
-    }
+    data: userData
   });
 };
 

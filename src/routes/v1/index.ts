@@ -13,6 +13,7 @@ import imageRoute from './image.route';
 import reviewRoute from './review.route';
 import publicRoute from './public.route';
 import adminRoute from './admin.route';
+import billing from './billing';
 
 const router = express.Router();
 
@@ -50,6 +51,10 @@ const defaultRoutes = [
   {
     path: '/campaigns',
     route: campaignRoute
+  },
+  {
+    path: '/billing',
+    route: billing
   }
 ];
 

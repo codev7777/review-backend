@@ -6,8 +6,12 @@ yarn-error.log
 
 # Environment varibales
 
-!.env*.example
+<<<<<<< HEAD
 
+=======
+!.env*.example
+>>>>>>> d0dde867ea1f077edf7e935c2bdc0a3171fd6935
+.env
 # Code coverage
 coverage
 
