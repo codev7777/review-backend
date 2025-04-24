@@ -1,8 +1,7 @@
 {
   "SILVER": {
-    "productId": "prod_SBVfY2gMLcWDgC",
-    "monthlyPriceId": "price_1RH8eXPuMpDKUxfQN4XUH99L",
-    "annualPriceId": "price_1RH8eYPuMpDKUxfQctBUsc7f",
+    "productId": "prod_SBk3TzYFppkhQh",
+    "annualPriceId": "price_1RHMYxPuMpDKUxfQxa4sycID",
     "features": {
       "Unlimited Reviews": "true",
       "Unlimited Leads": "true",
@@ -16,9 +15,8 @@
     }
   },
   "GOLD": {
-    "productId": "prod_SBVfbbVH3qg1Bj",
-    "monthlyPriceId": "price_1RH8eZPuMpDKUxfQAWOjGe19",
-    "annualPriceId": "price_1RH8eaPuMpDKUxfQfp9IyqbY",
+    "productId": "prod_SBk3e4yy84vF9N",
+    "annualPriceId": "price_1RHMYyPuMpDKUxfQFLGZqK9Y",
     "features": {
       "Unlimited Reviews": "true",
       "Unlimited Leads": "true",
@@ -32,9 +30,8 @@
     }
   },
   "PLATIUM": {
-    "productId": "prod_SBVf6fTpHNVpkp",
-    "monthlyPriceId": "price_1RH8ecPuMpDKUxfQhtgExI7J",
-    "annualPriceId": "price_1RH8ecPuMpDKUxfQ1NHyu8Hr",
+    "productId": "prod_SBk3hdYmTGwiSn",
+    "annualPriceId": "price_1RHMYzPuMpDKUxfQPupJxWdP",
     "features": {
       "Unlimited Reviews": "true",
       "Unlimited Leads": "true",

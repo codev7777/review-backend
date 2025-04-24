@@ -16,9 +16,14 @@ const router = express.Router();
 
 const mapPriceToPlan = (priceId: string): number => {
   const planMap: Record<string, number> = {
-    price_1RH8eXPuMpDKUxfQN4XUH99L: 1,
-    price_1RH8eZPuMpDKUxfQAWOjGe19: 2,
-    price_1RH8ecPuMpDKUxfQhtgExI7J: 3
+    // Monthly price IDs
+    price_1RH8eXPuMpDKUxfQN4XUH99L: 1, // SILVER monthly
+    price_1RH8eZPuMpDKUxfQAWOjGe19: 2, // GOLD monthly
+    price_1RH8ecPuMpDKUxfQhtgExI7J: 3, // PLATINUM monthly
+    // Annual price IDs
+    price_1RHMYxPuMpDKUxfQxa4sycID: 1, // SILVER annual
+    price_1RHMYyPuMpDKUxfQFLGZqK9Y: 2, // GOLD annual
+    price_1RHMYzPuMpDKUxfQPupJxWdP: 3 // PLATINUM annual
   };
   return planMap[priceId] ?? 1;
 };

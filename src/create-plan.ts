@@ -86,15 +86,15 @@ async function createPlans() {
       metadata
     });
 
-    const monthlyPrice = await stripe.prices.create({
-      unit_amount: parseInt(tier.MonthlyPrice) * 100,
-      currency: 'usd',
-      recurring: { interval: 'month' },
-      product: product.id
-    });
+    // const monthlyPrice = await stripe.prices.create({
+    //   unit_amount: parseInt(tier.MonthlyPrice) * 100,
+    //   currency: 'usd',
+    //   recurring: { interval: 'month' },
+    //   product: product.id
+    // });
 
     const annualPrice = await stripe.prices.create({
-      unit_amount: parseInt(tier.AnnuallyPrice) * 100,
+      unit_amount: parseInt(tier.AnnuallyPrice) * 1200,
       currency: 'usd',
       recurring: { interval: 'year' },
       product: product.id
@@ -102,20 +102,20 @@ async function createPlans() {
 
     output[tier.title] = {
       productId: product.id,
-      monthlyPriceId: monthlyPrice.id,
+      // monthlyPriceId: monthlyPrice.id,
       annualPriceId: annualPrice.id,
       features: metadata
     };
 
     console.log(`✅ ${tier.title} plan created with features.`);
-    console.log(`   🟢 Monthly: ${monthlyPrice.id}`);
+    // console.log(`   🟢 Monthly: ${monthlyPrice.id}`);
     console.log(`   🟡 Annual:  ${annualPrice.id}`);
   }
 
-  const outPath = path.join(__dirname, 'stripe-products.json');
+  const outPath = path.join(__dirname, 'stripe-products-2.json');
   fs.writeFileSync(outPath, JSON.stringify(output, null, 2));
 
-  console.log('\n💾 Features saved to stripe-products.json');
+  console.log('\n💾 Features saved to stripe-products-2.json');
   console.log('🎯 Done!');
 }
 
