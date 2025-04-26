@@ -3,6 +3,7 @@ import pick from '../utils/pick';
 import ApiError from '../utils/ApiError';
 import catchAsync from '../utils/catchAsync';
 import { userService } from '../services';
+import { User } from '@prisma/client';
 
 const createUser = catchAsync(async (req, res) => {
   const { email, password, name, role } = req.body;
@@ -22,6 +23,17 @@ const getUser = catchAsync(async (req, res) => {
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
   }
+
+  // Check if the requesting user has access to view this user
+  const requestingUser = req.user as User;
+  if (!requestingUser) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, 'Please authenticate');
+  }
+
+  if (requestingUser.role !== 'ADMIN' && user.companyId !== requestingUser.companyId) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'You can only view users in your company');
+  }
+
   res.send(user);
 });
 

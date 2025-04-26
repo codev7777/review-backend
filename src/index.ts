@@ -4,6 +4,8 @@ import prisma from './client';
 import config from './config/config';
 import logger from './config/logger';
 import { findAvailablePort } from './utils/findAvailablePort';
+import cron from 'node-cron';
+import axios from 'axios';
 
 let server: Server;
 prisma.$connect().then(async () => {
@@ -21,6 +23,18 @@ prisma.$connect().then(async () => {
     // Start the server on the available port
     server = app.listen(availablePort, () => {
       logger.info(`Listening to port ${availablePort}`);
+    });
+
+    // Schedule subscription expiration check to run daily at midnight
+    cron.schedule('0 0 * * *', async () => {
+      try {
+        const response = await axios.post(
+          `${process.env.API_URL}/v1/billing/check-expired-subscriptions`
+        );
+        console.log('Subscription expiration check completed:', response.data);
+      } catch (error) {
+        console.error('Failed to check expired subscriptions:', error);
+      }
     });
   } catch (error) {
     logger.error('Failed to start server:', error);

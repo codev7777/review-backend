@@ -26,8 +26,21 @@ const verifyCallback =
       );
 
       // Check if user is trying to delete themselves
-      if (req.params.userId == req.user.id) {
+      if (
+        req.params.userId == req.user.id &&
+        req.method === 'DELETE' &&
+        !req.path.includes('/companies/')
+      ) {
         return reject(new ApiError(httpStatus.FORBIDDEN, 'You cannot delete yourself'));
+      }
+
+      // Allow users to update their own profile
+      if (
+        req.params.userId == req.user.id &&
+        req.method === 'PATCH' &&
+        !req.path.includes('/companies/')
+      ) {
+        return resolve();
       }
 
       // Check if user has required rights

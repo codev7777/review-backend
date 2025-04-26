@@ -129,17 +129,38 @@ const removeUser = catchAsync(async (req: Request, res: Response) => {
     where: {
       id: userId,
       companyId: companyId
+    },
+    include: {
+      subscriptions: {
+        where: {
+          status: 'ACTIVE'
+        }
+      }
     }
   });
 
   if (!user) {
-    return res.status(httpStatus.NOT_FOUND).send({ message: 'User not found in company' });
+    throw new ApiError(httpStatus.NOT_FOUND, 'User not found in company');
   }
 
-  // Remove user from company
-  await prisma.user.update({
-    where: { id: userId },
-    data: { companyId: null }
+  // Check if user has active subscriptions
+  if (user.subscriptions.length > 0) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      'Cannot remove user with active subscriptions. Please cancel subscriptions first.'
+    );
+  }
+
+  // Start a transaction to ensure data consistency
+  await prisma.$transaction(async (tx) => {
+    // Remove user from company
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        companyId: null,
+        role: 'USER' // Reset role to basic user
+      }
+    });
   });
 
   res.status(httpStatus.NO_CONTENT).send();

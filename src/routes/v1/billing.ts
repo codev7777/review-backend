@@ -2,6 +2,7 @@ import prisma from '../../client';
 import { stripe } from '../../utils/stripe';
 import express from 'express';
 import { Prisma, User, Company, Subscription, SubscriptionStatus, Plan } from '@prisma/client';
+import Stripe from 'stripe';
 
 type UserWithStripe = User & {
   stripeCustomerId: string;
@@ -61,6 +62,43 @@ const handleCheckoutSuccess = async (req: express.Request, res: express.Response
     // 2. Fetch Stripe Subscription details
     const stripeSub = await stripe.subscriptions.retrieve(session.subscription as string);
 
+    // Debug logging
+    console.log('Stripe subscription data:', {
+      billing_cycle_anchor: (stripeSub as any).billing_cycle_anchor,
+      raw: stripeSub
+    });
+
+    // Calculate current period end based on billing cycle anchor and interval
+    const billingCycleAnchor = (stripeSub as any).billing_cycle_anchor;
+    if (!billingCycleAnchor || typeof billingCycleAnchor !== 'number') {
+      throw new Error('Invalid billing_cycle_anchor from Stripe subscription');
+    }
+
+    // Get the plan interval to determine how to calculate the end date
+    const plan = (stripeSub as any).plan;
+    const interval = plan?.interval;
+    const intervalCount = Number(plan?.interval_count) || 1;
+    const isTrial = stripeSub.status === 'trialing';
+    const trialEnd = stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : null;
+
+    let currentPeriodEnd: number;
+    if (isTrial && trialEnd) {
+      // If it's a trial, use the trial end date
+      currentPeriodEnd = trialEnd.getTime();
+    } else if (interval === 'year') {
+      // For yearly subscriptions, add the number of years
+      const endDate = new Date(billingCycleAnchor * 1000);
+      endDate.setFullYear(endDate.getFullYear() + intervalCount);
+      currentPeriodEnd = endDate.getTime();
+    } else if (interval === 'month') {
+      // For monthly subscriptions, add the number of months
+      const endDate = new Date(billingCycleAnchor * 1000);
+      endDate.setMonth(endDate.getMonth() + intervalCount);
+      currentPeriodEnd = endDate.getTime();
+    } else {
+      throw new Error(`Unsupported subscription interval: ${interval}`);
+    }
+
     // 3. Find user by Stripe customer ID
     const user = await prisma.user.findFirst({
       where: {
@@ -99,27 +137,19 @@ const handleCheckoutSuccess = async (req: express.Request, res: express.Response
     // Create or update subscription
     const subscriptionData = {
       stripeSubscriptionId: stripeSub.id,
-      status: 'ACTIVE' as const,
-      currentPeriodEnd: Number((stripeSub as any).current_period_end)
-        ? new Date(Number((stripeSub as any).current_period_end) * 1000)
-        : new Date(),
+      status: stripeSub.status.toUpperCase() as SubscriptionStatus,
+      currentPeriodEnd: new Date(currentPeriodEnd),
       cancelAtPeriodEnd: (stripeSub as any).cancel_at_period_end ?? false,
       user: {
-        connect: {
-          id: user.id
-        }
+        connect: { id: user.id }
       },
       company: {
-        connect: {
-          id: user.companyId
-        }
+        connect: { id: user.companyId }
       },
       plan: {
-        connect: {
-          id: mapPriceToPlan(stripeSub.items.data[0].price.id)
-        }
+        connect: { id: mapPriceToPlan(stripeSub.items.data[0].price.id) }
       }
-    };
+    } as const;
 
     let newSubscription;
     if (existingSubscription) {
@@ -162,9 +192,7 @@ const handleCheckoutSuccess = async (req: express.Request, res: express.Response
       where: { id: user.id },
       data: {
         stripeSubscriptionId: stripeSub.id,
-        currentPeriodEnd: Number((stripeSub as any).current_period_end)
-          ? new Date(Number((stripeSub as any).current_period_end) * 1000)
-          : new Date()
+        currentPeriodEnd: new Date(currentPeriodEnd)
       } as unknown as Prisma.UserUpdateInput
     });
 
@@ -188,7 +216,8 @@ const handleCheckoutSuccess = async (req: express.Request, res: express.Response
         id: newSubscription.id,
         planId: newSubscription.planId,
         status: newSubscription.status,
-        currentPeriodEnd: newSubscription.currentPeriodEnd
+        currentPeriodEnd: newSubscription.currentPeriodEnd,
+        isTrial: stripeSub.status === 'trialing'
       },
       subscriptionHistory: subscriptions.map((sub) => ({
         id: sub.id,
@@ -214,60 +243,56 @@ router.post('/checkout-success', handleCheckoutSuccess);
 
 router.post('/create-checkout-session', async (req, res) => {
   try {
-    const { userId, priceId, success_url, cancel_url } = req.body;
-    console.log('[create-checkout-session]', req.body);
+    const { userId, priceId, success_url, cancel_url, isTrial } = req.body;
 
     if (!userId || !priceId) {
       return res.status(400).json({
         error: 'Missing required fields',
-        details: {
-          userId: !userId ? 'User ID is required' : undefined,
-          priceId: !priceId ? 'Price ID is required' : undefined
-        }
+        details: 'userId and priceId are required'
       });
     }
 
-    // 1. Find the user and their associated company
-    const user = (await prisma.user.findUnique({
-      where: { id: parseInt(userId) },
+    // 1. Get user and company details
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
       include: { company: true }
-    })) as
-      | (User & {
-          subscriptions: (Subscription & {
-            plan: Plan;
-          })[];
-          company: Company | null;
-        })
-      | null;
+    });
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    if (!user || !user.company) {
+      return res.status(404).json({
+        error: 'User or company not found'
+      });
     }
 
-    if (!user.company) {
-      return res.status(400).json({ error: 'User must be associated with a company' });
-    }
-
-    // 2. Create Stripe Customer if the user doesn't have one
+    // 2. Get or create Stripe customer
     let stripeCustomerId = user.stripeCustomerId;
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.name || undefined,
+        email: user.email || undefined,
+        name: user.company.name || undefined,
         metadata: {
           userId: user.id,
           companyId: user.company.id
         }
-      });
+      } as Stripe.CustomerCreateParams);
       stripeCustomerId = customer.id;
 
+      // Update user with Stripe customer ID
       await prisma.user.update({
         where: { id: user.id },
         data: { stripeCustomerId }
       });
     }
 
-    // 3. Create Stripe Checkout Session
+    // Check if user has already used a trial
+    const hasUsedTrial = await prisma.subscription.findFirst({
+      where: {
+        userId: user.id,
+        status: 'TRIALING'
+      }
+    });
+
+    // 3. Create Stripe Checkout Session with trial period
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: 'subscription',
@@ -277,12 +302,16 @@ router.post('/create-checkout-session', async (req, res) => {
           quantity: 1
         }
       ],
+      subscription_data: {
+        trial_period_days: isTrial && !hasUsedTrial ? 7 : undefined // 7-day trial if requested and not used before
+      },
       success_url:
         success_url || `${process.env.FRONTEND_URL}/subscription?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancel_url || `${process.env.FRONTEND_URL}/subscription`,
       metadata: {
         userId: user.id,
-        companyId: user.company.id
+        companyId: user.company.id,
+        isTrial: isTrial ? 'true' : 'false'
       }
     });
 
@@ -298,52 +327,57 @@ router.post('/create-checkout-session', async (req, res) => {
 });
 
 router.post('/cancel-subscription', async (req, res) => {
-  const { userId } = req.body;
-
-  if (!userId) {
-    return res.status(400).json({ message: 'userId is required' });
-  }
-
   try {
-    // Find user and subscription
-    const user = await prisma.user.findUnique({
-      where: { id: parseInt(userId) },
-      include: {
-        subscriptions: {
-          where: {
-            status: SubscriptionStatus.ACTIVE
-          }
-        }
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
+
+    // Find the active subscription
+    const subscription = await prisma.subscription.findFirst({
+      where: {
+        userId: parseInt(userId),
+        OR: [{ status: 'ACTIVE' }, { status: 'TRIALING' }]
       }
     });
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active subscription found'
+      });
     }
-
-    if (!user.subscriptions.length) {
-      return res.status(404).json({ message: 'No active subscription found' });
-    }
-
-    const subscription = user.subscriptions[0]; // Assuming the user has one subscription
 
     // Cancel the subscription in Stripe
-    await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-      cancel_at_period_end: true
-    });
+    if (subscription.stripeSubscriptionId) {
+      await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+        cancel_at_period_end: true
+      });
+    }
 
     // Update the subscription in our database
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: {
+        status: 'CANCELED',
         cancelAtPeriodEnd: true
       }
     });
 
-    res.json({ message: 'Subscription will be cancelled at the end of the billing period' });
+    res.json({
+      success: true,
+      message: 'Subscription will be cancelled at the end of the billing period'
+    });
   } catch (error) {
-    console.error('Error cancelling subscription:', error);
-    res.status(500).json({ message: 'Error cancelling subscription' });
+    console.error('[cancel-subscription error]', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to cancel subscription'
+    });
   }
 });
 
@@ -428,6 +462,7 @@ router.get('/details', async (req, res) => {
 
     let subscription;
     let company;
+    let hasUsedTrial = false;
 
     if (companyId) {
       // Get company with its active subscription
@@ -436,7 +471,7 @@ router.get('/details', async (req, res) => {
         include: {
           subscriptions: {
             where: {
-              status: 'ACTIVE'
+              OR: [{ status: 'ACTIVE' }, { status: 'TRIALING' }]
             },
             include: {
               plan: true
@@ -453,6 +488,15 @@ router.get('/details', async (req, res) => {
       }
 
       subscription = company.subscriptions[0];
+
+      // Check if company has ever used a trial
+      const trialHistory = await prisma.subscription.findFirst({
+        where: {
+          companyId: parseInt(companyId),
+          status: 'TRIALING'
+        }
+      });
+      hasUsedTrial = !!trialHistory;
     } else {
       // Get user with their active subscription
       const user = await prisma.user.findUnique({
@@ -460,7 +504,7 @@ router.get('/details', async (req, res) => {
         include: {
           subscriptions: {
             where: {
-              status: 'ACTIVE'
+              OR: [{ status: 'ACTIVE' }, { status: 'TRIALING' }]
             },
             include: {
               plan: true
@@ -479,6 +523,30 @@ router.get('/details', async (req, res) => {
 
       company = user.company;
       subscription = user.subscriptions[0];
+
+      // Check if user has ever used a trial
+      const trialHistory = await prisma.subscription.findFirst({
+        where: {
+          userId: parseInt(userId),
+          status: 'TRIALING'
+        }
+      });
+      hasUsedTrial = !!trialHistory;
+    }
+
+    // If there's a subscription, get the trial end date from Stripe
+    let trialEnd = null;
+    if (subscription?.stripeSubscriptionId) {
+      try {
+        const stripeSubscription = await stripe.subscriptions.retrieve(
+          subscription.stripeSubscriptionId
+        );
+        if (stripeSubscription.trial_end) {
+          trialEnd = new Date(stripeSubscription.trial_end * 1000);
+        }
+      } catch (error) {
+        console.error('Error fetching Stripe subscription:', error);
+      }
     }
 
     res.json({
@@ -491,9 +559,11 @@ router.get('/details', async (req, res) => {
               status: subscription.status,
               currentPeriodEnd: subscription.currentPeriodEnd,
               cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-              plan: subscription.plan
+              plan: subscription.plan,
+              trialEnd: trialEnd
             }
-          : null
+          : null,
+        hasUsedTrial
       }
     });
   } catch (error) {
@@ -544,6 +614,78 @@ router.post('/create-portal-session', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create portal session'
+    });
+  }
+});
+
+// Check and handle expired subscriptions
+router.post('/check-expired-subscriptions', async (req, res) => {
+  try {
+    const now = new Date();
+
+    // Find all active and trialing subscriptions that have passed their currentPeriodEnd
+    const expiredSubscriptions = await prisma.subscription.findMany({
+      where: {
+        OR: [{ status: 'ACTIVE' }, { status: 'TRIALING' }],
+        currentPeriodEnd: {
+          lt: now
+        }
+      },
+      include: {
+        user: true,
+        company: true
+      }
+    });
+
+    // Update each expired subscription
+    for (const subscription of expiredSubscriptions) {
+      // Update subscription status
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: 'CANCELED' as const,
+          cancelAtPeriodEnd: true
+        }
+      });
+
+      // Update company's plan if needed
+      if (subscription.company) {
+        await prisma.company.update({
+          where: { id: subscription.company.id },
+          data: {
+            planId: null // Remove the plan association
+          }
+        });
+      }
+
+      // Update user's subscription status
+      if (subscription.user) {
+        await prisma.user.update({
+          where: { id: subscription.user.id },
+          data: {
+            stripeSubscriptionId: null,
+            currentPeriodEnd: null
+          }
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Processed ${expiredSubscriptions.length} expired subscriptions`,
+      expiredSubscriptions: expiredSubscriptions.map((sub) => ({
+        id: sub.id,
+        userId: sub.userId,
+        companyId: sub.companyId,
+        currentPeriodEnd: sub.currentPeriodEnd,
+        status: sub.status
+      }))
+    });
+  } catch (error) {
+    console.error('[check-expired-subscriptions error]', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to process expired subscriptions'
     });
   }
 });

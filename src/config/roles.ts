@@ -1,7 +1,13 @@
 import { Role } from '@prisma/client';
 
 const allRoles = {
-  [Role.USER]: ['getCompanies', 'manageCompanies', 'getCategories', 'manageCompanyUsers'],
+  [Role.USER]: [
+    'getCompanies',
+    'manageCompanies',
+    'getCategories',
+    'manageCompanyUsers',
+    'getCompanyUsers'
+  ],
   [Role.ADMIN]: [
     'getCompanies',
     'manageCompanies',
@@ -9,7 +15,8 @@ const allRoles = {
     'manageUsers',
     'getCategories',
     'manageCategories',
-    'manageCompanyUsers'
+    'manageCompanyUsers',
+    'getCompanyUsers'
   ]
 };
 
