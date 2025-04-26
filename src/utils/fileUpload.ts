@@ -91,6 +91,26 @@ export const savePromotionImage = (base64Data: string): string => {
 };
 
 /**
+ * Save a PDF file from base64 data
+ * @param {string} base64Data - Base64 encoded PDF data
+ * @returns {string} - Path to the saved PDF
+ */
+export const savePdfFile = (base64Data: string): string => {
+  const matches = base64Data.match(/^data:application\/pdf;base64,(.+)$/);
+  if (!matches || matches.length !== 2) {
+    throw new Error('Invalid base64 PDF data');
+  }
+
+  const [, base64String] = matches;
+  const buffer = Buffer.from(base64String, 'base64');
+  const fileName = `promotion-pdf-${uuidv4()}.pdf`;
+  const filePath = path.join(UPLOAD_DIR, fileName);
+
+  fs.writeFileSync(filePath, buffer);
+  return fileName;
+};
+
+/**
  * Delete an image file
  * @param {string} fileName - Name of the file to delete
  */

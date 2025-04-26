@@ -4,6 +4,10 @@ import ApiError from '../utils/ApiError';
 import config from '../config/config';
 import { getFrontendUrl } from '../utils/url';
 import userService from './user.service';
+import path from 'path';
+import fs from 'fs';
+import { UPLOAD_DIR } from '../config/constants';
+
 const mailjet = new Client({
   apiKey: 'ef8405722e49209064a09000f1986414',
   apiSecret: 'e240eebd311af32c6bc1a241ba43de3c'
@@ -230,8 +234,221 @@ const sendInvitationEmail = async (
   }
 };
 
+/**
+ * Send digital download PDF via email
+ * @param {string} to - Recipient email
+ * @param {string} name - Recipient name
+ * @param {string} promotionTitle - Title of the promotion
+ * @param {string} pdfFileName - Name of the PDF file
+ * @returns {Promise<void>}
+ */
+export const sendDigitalDownloadEmail = async (
+  to: string,
+  name: string,
+  promotionTitle: string,
+  pdfFileName: string
+): Promise<void> => {
+  const pdfPath = path.join(UPLOAD_DIR, pdfFileName);
+  console.log('Attempting to send digital download email:', {
+    to,
+    name,
+    promotionTitle,
+    pdfFileName,
+    pdfPath
+  });
+
+  try {
+    // Check if PDF file exists
+    if (!fs.existsSync(pdfPath)) {
+      console.error('PDF file not found:', pdfPath);
+      throw new Error('PDF file not found');
+    }
+
+    const pdfContent = fs.readFileSync(pdfPath);
+    console.log('PDF file read successfully, size:', pdfContent.length);
+
+    const result = await mailjet.post('send', { version: 'v3.1' }).request({
+      Messages: [
+        {
+          From: {
+            Email: 'noreply@reviewbrothers.com',
+            Name: 'Review Brothers'
+          },
+          To: [
+            {
+              Email: to,
+              Name: name
+            }
+          ],
+          Subject: `Your Digital Download: ${promotionTitle}`,
+          HTMLPart: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <img src="https://i.ibb.co/zhx5Wy7K/11.png" alt="Review Brothers" style="max-width: 200px; height: auto; border-radius: 8px;" />
+            </div>
+            <h2 style="text-align: left; color: #232f3e; margin-bottom: 20px;">Thank you for your valuable review! 🎉</h2>
+            <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+              We're thrilled to have your feedback and are excited to share your digital download with you. Your opinion helps us and other customers make better decisions!
+            </p>
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #232f3e; margin-top: 0;">Your Digital Download</h3>
+              <p style="color: #333; margin-bottom: 10px;">
+                <strong>${promotionTitle}</strong>
+              </p>
+              <p style="color: #666; font-size: 14px;">
+                The PDF file is attached to this email. Simply click to download and enjoy your content!
+              </p>
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+              <p style="color: #333; font-size: 14px;">
+                If you have any questions or need assistance, our support team is here to help!<br />
+                Contact us at <a href="mailto:info@reviewbrothers.com" style="color: #232f3e; text-decoration: none;">info@reviewbrothers.com</a>
+              </p>
+            </div>
+            <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;">
+              <p style="color: #666; font-size: 14px; margin-bottom: 0;">
+                We appreciate your trust in Review Brothers. Your satisfaction is our top priority!
+              </p>
+            </div>
+            <p style="margin-top: 40px; color: #232f3e; font-weight: bold;">
+              Best Regards,<br />
+              <span style="color: #f97316;">The Review Brothers Team</span>
+            </p>
+          </div>
+          `,
+          Attachments: [
+            {
+              ContentType: 'application/pdf',
+              Filename: pdfFileName,
+              Base64Content: pdfContent.toString('base64')
+            }
+          ]
+        }
+      ]
+    });
+
+    console.log('Email sent successfully:', result.body);
+  } catch (error: any) {
+    console.error('Error sending digital download email:', error);
+    if (error.response?.body) {
+      console.error('Mailjet API response:', error.response.body);
+    }
+    throw error;
+  }
+};
+
+/**
+ * Send coupon code via email
+ * @param {string} to - Recipient email
+ * @param {string} name - Recipient name
+ * @param {string} promotionTitle - Title of the promotion
+ * @param {string} couponCode - The coupon code to send
+ * @param {Date} expiryDate - Expiry date of the coupon
+ * @returns {Promise<void>}
+ */
+export const sendCouponCodeEmail = async (
+  to: string,
+  name: string,
+  promotionTitle: string,
+  couponCode: string
+): Promise<void> => {
+  console.log('Starting to send coupon code email:', {
+    to,
+    name,
+    promotionTitle,
+    couponCode
+  });
+
+  try {
+    const result = await mailjet.post('send', { version: 'v3.1' }).request({
+      Messages: [
+        {
+          From: {
+            Email: 'noreply@reviewbrothers.com',
+            Name: 'Review Brothers'
+          },
+          To: [
+            {
+              Email: to,
+              Name: name
+            }
+          ],
+          Subject: `Your Exclusive Coupon Code: ${promotionTitle}`,
+          HTMLPart: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <img src="https://i.ibb.co/zhx5Wy7K/11.png" alt="Review Brothers" style="max-width: 200px; height: auto; border-radius: 8px;" />
+            </div>
+            
+            <h2 style="text-align: left; color: #232f3e; margin-bottom: 20px;">Thank you for your valuable review! 🎉</h2>
+            
+            <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+              We're thrilled to have your feedback and are excited to reward you with an exclusive coupon code for your next purchase. Your opinion helps us and other customers make better decisions!
+            </p>
+
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+              <h3 style="color: #232f3e; margin-top: 0;">Your Exclusive Coupon Code</h3>
+              <div style="background-color: #ffffff; padding: 15px; border: 2px dashed #232f3e; border-radius: 8px; margin: 15px 0;">
+                <p style="font-size: 24px; font-weight: bold; color: #f97316; margin: 0;">${couponCode}</p>
+              </div>
+            </div>
+
+            <div style="background-color: #fff8f0; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #232f3e; margin-top: 0;">How to Use Your Coupon</h3>
+              <ol style="color: #333; padding-left: 20px;">
+                <li>Add your desired items to your cart</li>
+                <li>Proceed to checkout</li>
+                <li>Enter the coupon code in the designated field</li>
+                <li>Enjoy your discount!</li>
+              </ol>
+            </div>
+
+            <div style="background-color: #f0f7ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #232f3e; margin-top: 0;">Need Help?</h3>
+              <p style="color: #333; margin-bottom: 10px;">
+                If you have any questions about using your coupon or need assistance with your purchase, our support team is here to help!
+              </p>
+              <p style="color: #666; font-size: 14px;">
+                Contact us at <a href="mailto:info@reviewbrothers.com" style="color: #232f3e; text-decoration: none;">info@reviewbrothers.com</a>
+              </p>
+            </div>
+
+            <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;">
+              <p style="color: #666; font-size: 14px; margin-bottom: 0;">
+                We appreciate your trust in Review Brothers. Your satisfaction is our top priority!
+              </p>
+            </div>
+
+            <p style="margin-top: 40px; color: #232f3e; font-weight: bold;">
+              Best Regards,<br />
+              <span style="color: #f97316;">The Review Brothers Team</span>
+            </p>
+          </div>
+          `
+        }
+      ]
+    });
+
+    console.log('Mailjet API response:', {
+      status: result.response.status,
+      body: result.body
+    });
+  } catch (error: any) {
+    console.error('Error sending coupon code email:', {
+      to,
+      name,
+      promotionTitle,
+      error: error.message,
+      response: error.response?.body
+    });
+    throw error;
+  }
+};
+
 export default {
   sendVerificationEmail,
   sendResetPasswordEmail,
-  sendInvitationEmail
+  sendInvitationEmail,
+  sendDigitalDownloadEmail,
+  sendCouponCodeEmail
 };

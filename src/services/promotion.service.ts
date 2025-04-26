@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import type { Prisma, PromotionType } from '@prisma/client';
 import httpStatus from 'http-status';
 import ApiError from '../utils/ApiError';
-import { savePromotionImage, deleteImage } from '../utils/fileUpload';
+import { savePromotionImage, savePdfFile, deleteImage } from '../utils/fileUpload';
 
 const prisma = new PrismaClient();
 
@@ -100,6 +100,16 @@ const createPromotion = async (
     imageUrl = savePromotionImage(promotionBody.image);
   }
 
+  // Handle PDF file upload for digital downloads
+  let downloadableFileUrl = promotionBody.downloadableFileUrl;
+  if (
+    promotionBody.promotionType === 'DIGITAL_DOWNLOAD' &&
+    promotionBody.downloadableFileUrl &&
+    promotionBody.downloadableFileUrl.startsWith('data:application/pdf')
+  ) {
+    downloadableFileUrl = savePdfFile(promotionBody.downloadableFileUrl);
+  }
+
   // Prepare promotion data based on type
   const promotionData: any = {
     title: promotionBody.title,
@@ -124,7 +134,7 @@ const createPromotion = async (
       promotionData.freeProductApprovalMethod = 'MANUAL';
       break;
     case 'DIGITAL_DOWNLOAD':
-      promotionData.downloadableFileUrl = promotionBody.downloadableFileUrl;
+      promotionData.downloadableFileUrl = downloadableFileUrl;
       promotionData.digitalApprovalMethod = promotionBody.digitalApprovalMethod;
       break;
   }
@@ -216,37 +226,99 @@ const updatePromotionById = async (
     throw new ApiError(httpStatus.NOT_FOUND, 'Promotion not found');
   }
 
+  // Create a new object to store only the changed fields
+  const updateData: any = {};
+
   // Handle image upload if a new image is provided
-  let imageUrl = updateBody.image;
   if (updateBody.image && updateBody.image.startsWith('data:image')) {
     // Delete the old image if it exists
     if (promotion.image) {
       deleteImage(promotion.image);
     }
-    imageUrl = savePromotionImage(updateBody.image);
+    updateData.image = savePromotionImage(updateBody.image);
+  } else if (updateBody.image !== undefined) {
+    updateData.image = updateBody.image;
   }
 
-  // Prepare update data based on type
-  const updateData: any = {
-    ...updateBody,
-    image: imageUrl
-  };
+  // Handle PDF file upload for digital downloads if changed
+  if (
+    promotion.promotionType === 'DIGITAL_DOWNLOAD' &&
+    updateBody.downloadableFileUrl &&
+    updateBody.downloadableFileUrl.startsWith('data:application/pdf')
+  ) {
+    updateData.downloadableFileUrl = savePdfFile(updateBody.downloadableFileUrl);
+  } else if (updateBody.downloadableFileUrl !== undefined) {
+    updateData.downloadableFileUrl = updateBody.downloadableFileUrl;
+  }
 
-  // Remove type-specific fields that don't belong to the current promotion type
-  const currentType = promotion.promotionType;
-  if (currentType !== 'GIFT_CARD') delete updateData.giftCardDeliveryMethod;
-  if (currentType !== 'DISCOUNT_CODE') {
-    delete updateData.approvalMethod;
-    delete updateData.codeType;
-    delete updateData.couponCodes;
+  // Add other fields only if they are different from current values
+  if (updateBody.title !== undefined && updateBody.title !== promotion.title) {
+    updateData.title = updateBody.title;
   }
-  if (currentType !== 'FREE_PRODUCT') {
-    delete updateData.freeProductDeliveryMethod;
-    delete updateData.freeProductApprovalMethod;
+  if (updateBody.description !== undefined && updateBody.description !== promotion.description) {
+    updateData.description = updateBody.description;
   }
-  if (currentType !== 'DIGITAL_DOWNLOAD') {
-    delete updateData.downloadableFileUrl;
-    delete updateData.digitalApprovalMethod;
+  if (
+    updateBody.promotionType !== undefined &&
+    updateBody.promotionType !== promotion.promotionType
+  ) {
+    updateData.promotionType = updateBody.promotionType;
+  }
+
+  // Add type-specific fields only if they are different
+  switch (promotion.promotionType) {
+    case 'GIFT_CARD':
+      if (
+        updateBody.giftCardDeliveryMethod !== undefined &&
+        updateBody.giftCardDeliveryMethod !== promotion.giftCardDeliveryMethod
+      ) {
+        updateData.giftCardDeliveryMethod = updateBody.giftCardDeliveryMethod;
+      }
+      break;
+    case 'DISCOUNT_CODE':
+      if (
+        updateBody.approvalMethod !== undefined &&
+        updateBody.approvalMethod !== promotion.approvalMethod
+      ) {
+        updateData.approvalMethod = updateBody.approvalMethod;
+      }
+      if (updateBody.codeType !== undefined && updateBody.codeType !== promotion.codeType) {
+        updateData.codeType = updateBody.codeType;
+      }
+      if (
+        updateBody.couponCodes !== undefined &&
+        JSON.stringify(updateBody.couponCodes) !== JSON.stringify(promotion.couponCodes)
+      ) {
+        updateData.couponCodes = updateBody.couponCodes;
+      }
+      break;
+    case 'FREE_PRODUCT':
+      if (
+        updateBody.freeProductDeliveryMethod !== undefined &&
+        updateBody.freeProductDeliveryMethod !== promotion.freeProductDeliveryMethod
+      ) {
+        updateData.freeProductDeliveryMethod = updateBody.freeProductDeliveryMethod;
+      }
+      if (
+        updateBody.freeProductApprovalMethod !== undefined &&
+        updateBody.freeProductApprovalMethod !== promotion.freeProductApprovalMethod
+      ) {
+        updateData.freeProductApprovalMethod = updateBody.freeProductApprovalMethod;
+      }
+      break;
+    case 'DIGITAL_DOWNLOAD':
+      if (
+        updateBody.digitalApprovalMethod !== undefined &&
+        updateBody.digitalApprovalMethod !== promotion.digitalApprovalMethod
+      ) {
+        updateData.digitalApprovalMethod = updateBody.digitalApprovalMethod;
+      }
+      break;
+  }
+
+  // Only perform update if there are changes
+  if (Object.keys(updateData).length === 0) {
+    return promotion;
   }
 
   return prisma.promotion.update({

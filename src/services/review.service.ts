@@ -3,6 +3,7 @@ import httpStatus from 'http-status';
 import prisma from '../client';
 import ApiError from '../utils/ApiError';
 import { PrismaClient, CampaignStatus, ReviewStatus } from '@prisma/client';
+import { sendDigitalDownloadEmail, sendCouponCodeEmail } from './mail.service';
 
 const prismaClient = new PrismaClient();
 
@@ -102,8 +103,125 @@ const createReview = async (reviewBody: ReviewInput): Promise<Review> => {
         campaignId: product.Campaigns?.[0]?.id,
         customerId: customer.id,
         status: ReviewStatus.PENDING
+      },
+      include: {
+        Promotion: true
       }
     });
+    console.log(
+      review.Promotion?.promotionType,
+      review.Promotion?.digitalApprovalMethod,
+      review.Promotion?.downloadableFileUrl
+    );
+    // If this is a digital download promotion with automatic approval, send the PDF
+    if (
+      review.Promotion?.promotionType === 'DIGITAL_DOWNLOAD' &&
+      review.Promotion.digitalApprovalMethod === 'AUTOMATIC' &&
+      review.Promotion.downloadableFileUrl
+    ) {
+      console.log('Attempting to send digital download email for review:', {
+        reviewId: review.id,
+        email: review.email,
+        promotion: review.Promotion
+      });
+
+      try {
+        await sendDigitalDownloadEmail(
+          review.email,
+          review.name,
+          review.Promotion.title,
+          review.Promotion.downloadableFileUrl
+        );
+
+        console.log('Digital download email sent successfully for review:', review.id);
+
+        // Update review status to processed
+        await prismaClient.review.update({
+          where: { id: review.id },
+          data: { status: ReviewStatus.PROCESSED }
+        });
+      } catch (error) {
+        console.error('Error sending digital download email for review:', review.id, error);
+        // Don't throw the error, just log it
+      }
+    }
+    console.log(
+      'review.Promotion?.promotionType',
+      review.Promotion?.promotionType,
+      'review.Promotion?.approvalMethod',
+      review.Promotion?.approvalMethod,
+      'review.Promotion?.couponCodes',
+      review.Promotion?.couponCodes,
+      'review.Promotion?.couponCodes.length',
+      review.Promotion?.couponCodes?.length
+    );
+    // If this is a coupon code promotion with automatic approval, send the coupon
+    if (
+      review.Promotion?.promotionType === 'DISCOUNT_CODE' &&
+      review.Promotion.approvalMethod === 'AUTOMATIC' &&
+      review.Promotion.couponCodes &&
+      review.Promotion.couponCodes.length > 0
+    ) {
+      console.log('Found eligible discount code promotion:', {
+        reviewId: review.id,
+        promotionId: review.Promotion.id,
+        promotionType: review.Promotion.promotionType,
+        approvalMethod: review.Promotion.approvalMethod,
+        availableCodes: review.Promotion.couponCodes.length,
+        codeType: review.Promotion.codeType
+      });
+
+      try {
+        // Get the first available coupon code
+        const couponCode = review.Promotion.couponCodes[0];
+        console.log('Selected coupon code:', couponCode);
+
+        console.log('Attempting to send coupon code email to:', {
+          email: review.email,
+          name: review.name,
+          promotionTitle: review.Promotion.title
+        });
+
+        await sendCouponCodeEmail(review.email, review.name, review.Promotion.title, couponCode);
+
+        console.log('Coupon code email sent successfully for review:', review.id);
+
+        // Update review status to processed
+        await prismaClient.review.update({
+          where: { id: review.id },
+          data: { status: ReviewStatus.PROCESSED }
+        });
+        console.log('Review status updated to PROCESSED');
+
+        // If it's a single-use code, remove it from the available codes
+        if (review.Promotion.codeType === 'SINGLE_USE') {
+          const updatedCodes = review.Promotion.couponCodes.filter((code) => code !== couponCode);
+          await prismaClient.promotion.update({
+            where: { id: review.Promotion.id },
+            data: {
+              couponCodes: {
+                set: updatedCodes
+              }
+            }
+          });
+          console.log('Single-use code removed. Remaining codes:', updatedCodes.length);
+        }
+      } catch (error: unknown) {
+        console.error('Error in coupon code email process:', {
+          reviewId: review.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        // Don't throw the error, just log it
+      }
+    } else {
+      console.log('Review not eligible for automatic coupon code:', {
+        reviewId: review.id,
+        promotionType: review.Promotion?.promotionType,
+        approvalMethod: review.Promotion?.approvalMethod,
+        hasCouponCodes: Boolean(review.Promotion?.couponCodes?.length)
+      });
+    }
 
     return review;
   } catch (error) {
@@ -261,21 +379,36 @@ const updateProductRatio = async (productId: number): Promise<void> => {
 };
 
 const updateCompanyStatistics = async (companyId: number): Promise<void> => {
-  const reviews = await prisma.review.findMany({
-    where: { Product: { companyId } },
-    select: { ratio: true }
-  });
+  try {
+    // First check if the company exists
+    const company = await prisma.company.findUnique({
+      where: { id: companyId }
+    });
 
-  const totalRatio = reviews.reduce((sum, review) => sum + review.ratio, 0);
-  const averageRatio = reviews.length > 0 ? totalRatio / reviews.length : 0;
-
-  await prisma.company.update({
-    where: { id: companyId },
-    data: {
-      ratio: averageRatio,
-      reviews: { increment: 1 }
+    if (!company) {
+      console.error(`Company with ID ${companyId} not found`);
+      return;
     }
-  });
+
+    const reviews = await prisma.review.findMany({
+      where: { Product: { companyId } },
+      select: { ratio: true }
+    });
+
+    const totalRatio = reviews.reduce((sum, review) => sum + review.ratio, 0);
+    const averageRatio = reviews.length > 0 ? totalRatio / reviews.length : 0;
+
+    await prisma.company.update({
+      where: { id: companyId },
+      data: {
+        ratio: averageRatio,
+        reviews: { increment: 1 }
+      }
+    });
+  } catch (error) {
+    console.error('Error updating company statistics:', error);
+    // Don't throw the error to prevent review creation from failing
+  }
 };
 const updateCampaignStatistics = async (campaignId: number): Promise<void> => {
   const reviews = await prisma.review.findMany({
