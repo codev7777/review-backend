@@ -18,7 +18,12 @@ router.get('/campaigns/:campaignId', async (req, res, next) => {
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId },
       include: {
-        promotion: true
+        promotion: true,
+        company: {
+          include: {
+            Plan: true
+          }
+        }
       }
     });
 
@@ -26,7 +31,22 @@ router.get('/campaigns/:campaignId', async (req, res, next) => {
       return res.status(404).json({ message: 'Campaign not found' });
     }
 
-    return res.json(campaign);
+    // Only include Meta Pixel ID if company has GOLD or PLATINUM plan
+    const response = {
+      ...campaign,
+      company: campaign.company
+        ? {
+            ...campaign.company,
+            metaPixelId:
+              campaign.company.Plan?.planType === 'GOLD' ||
+              campaign.company.Plan?.planType === 'PLATINUM'
+                ? campaign.company.metaPixelId
+                : null
+          }
+        : null
+    };
+
+    return res.json(response);
   } catch (error) {
     next(error);
   }

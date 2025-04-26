@@ -41,6 +41,7 @@ model Company {
   planId        Int?
   ratio         Float?         @default(0)
   reviews       Int?           @default(0)
+  metaPixelId   String?        // Meta Pixel ID for GOLD and PLATINUM plans
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   Plan          Plan?          @relation(fields: [planId], references: [id])

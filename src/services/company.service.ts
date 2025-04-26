@@ -1,4 +1,4 @@
-import { Company, Prisma } from '@prisma/client';
+import { Company, Prisma, PlanType } from '@prisma/client';
 import httpStatus from 'http-status';
 import prisma from '../client';
 import ApiError from '../utils/ApiError';
@@ -11,7 +11,21 @@ import { saveCompanyLogo, deleteImage } from '../utils/fileUpload';
  * @returns {Promise<Company>}
  */
 const createCompany = async (companyBody: Prisma.CompanyCreateInput): Promise<Company> => {
-  const { logo, Plan, ...rest } = companyBody;
+  const { logo, Plan, metaPixelId, ...rest } = companyBody;
+
+  // Validate Meta Pixel ID if provided
+  if (metaPixelId && Plan) {
+    const plan = await prisma.plan.findUnique({
+      where: { id: Number(Plan.connect?.id) }
+    });
+
+    if (plan && plan.planType !== 'GOLD' && plan.planType !== 'PLATINUM') {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        'Meta Pixel ID is only available for GOLD and PLATINUM plans'
+      );
+    }
+  }
 
   // Handle logo upload if provided
   let logoPath = null;
@@ -25,7 +39,8 @@ const createCompany = async (companyBody: Prisma.CompanyCreateInput): Promise<Co
     ratio: rest.ratio ?? 0,
     reviews: rest.reviews ?? 0,
     Plan: undefined, // Remove Plan from create input
-    logo: logoPath
+    logo: logoPath,
+    metaPixelId: metaPixelId as string | undefined
   };
 
   return prisma.company.create({
@@ -106,7 +121,21 @@ const updateCompanyById = async (
     throw new ApiError(httpStatus.NOT_FOUND, 'Company not found');
   }
 
-  const { logo, ...updateData } = updateBody;
+  const { logo, metaPixelId, ...updateData } = updateBody;
+
+  // Validate Meta Pixel ID if provided
+  if (metaPixelId) {
+    const plan = await prisma.plan.findUnique({
+      where: { id: company.planId || 0 }
+    });
+
+    if (!plan || (plan.planType !== 'GOLD' && plan.planType !== 'PLATINUM')) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        'Meta Pixel ID is only available for GOLD and PLATINUM plans'
+      );
+    }
+  }
 
   // Handle logo update if provided
   let logoPath = company.logo;
@@ -130,7 +159,8 @@ const updateCompanyById = async (
     where: { id: companyId },
     data: {
       ...updateData,
-      logo: logoPath
+      logo: logoPath,
+      metaPixelId: metaPixelId as string | undefined
     }
   });
 };
