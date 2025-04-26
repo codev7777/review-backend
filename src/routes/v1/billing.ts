@@ -413,67 +413,85 @@ router.post('/confirm-subscription', async (req, res) => {
   res.json({ success: true });
 });
 
-// Get billing details for a user
+// Get billing details for a user or company
 router.get('/details', async (req, res) => {
   try {
     const userId = req.query.userId as string;
+    const companyId = req.query.companyId as string;
 
-    if (!userId) {
+    if (!userId && !companyId) {
       return res.status(400).json({
         success: false,
-        error: 'User ID is required'
+        error: 'User ID or Company ID is required'
       });
     }
 
-    // Get user with their active subscription
-    const user = (await prisma.user.findUnique({
-      where: { id: parseInt(userId) },
-      include: {
-        subscriptions: {
-          where: {
-            status: 'ACTIVE'
-          },
-          include: {
-            plan: true
+    let subscription;
+    let company;
+
+    if (companyId) {
+      // Get company with its active subscription
+      company = await prisma.company.findUnique({
+        where: { id: parseInt(companyId) },
+        include: {
+          subscriptions: {
+            where: {
+              status: 'ACTIVE'
+            },
+            include: {
+              plan: true
+            }
           }
-        },
-        company: true
-      }
-    })) as
-      | (User & {
-          subscriptions: (Subscription & {
-            plan: Plan;
-          })[];
-          company: Company | null;
-        })
-      | null;
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
+        }
       });
-    }
 
-    const activeSubscription = user.subscriptions[0];
+      if (!company) {
+        return res.status(404).json({
+          success: false,
+          error: 'Company not found'
+        });
+      }
+
+      subscription = company.subscriptions[0];
+    } else {
+      // Get user with their active subscription
+      const user = await prisma.user.findUnique({
+        where: { id: parseInt(userId) },
+        include: {
+          subscriptions: {
+            where: {
+              status: 'ACTIVE'
+            },
+            include: {
+              plan: true
+            }
+          },
+          company: true
+        }
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found'
+        });
+      }
+
+      company = user.company;
+      subscription = user.subscriptions[0];
+    }
 
     res.json({
       success: true,
       data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          stripeCustomerId: user.stripeCustomerId
-        },
-        company: user.company,
-        subscription: activeSubscription
+        company,
+        subscription: subscription
           ? {
-              id: activeSubscription.id,
-              status: activeSubscription.status,
-              currentPeriodEnd: activeSubscription.currentPeriodEnd,
-              cancelAtPeriodEnd: activeSubscription.cancelAtPeriodEnd,
-              plan: activeSubscription.plan
+              id: subscription.id,
+              status: subscription.status,
+              currentPeriodEnd: subscription.currentPeriodEnd,
+              cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+              plan: subscription.plan
             }
           : null
       }

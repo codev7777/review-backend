@@ -33,6 +33,14 @@ router
     companyController.deleteCompany
   );
 
+// Company users endpoints
+router
+  .route('/:companyId/users')
+  .get(auth(), companyController.getCompanyUsers)
+  .post(auth(), validate(companyValidation.inviteUser), companyController.inviteUser);
+
+router.route('/:companyId/users/:userId').delete(auth(), companyController.removeUser);
+
 export default router;
 
 /**

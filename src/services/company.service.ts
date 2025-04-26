@@ -155,13 +155,19 @@ const updateCompanyById = async (
     }
   }
 
+  // Create update data with only changed fields
+  const data: Prisma.CompanyUpdateInput = {};
+
+  if (updateData.name !== undefined) data.name = updateData.name;
+  if (updateData.websiteUrl !== undefined) data.websiteUrl = updateData.websiteUrl;
+  if (updateData.detail !== undefined) data.detail = updateData.detail;
+  if (updateData.ratio !== undefined) data.ratio = updateData.ratio;
+  if (logoPath !== company.logo) data.logo = logoPath;
+  if (metaPixelId !== undefined) data.metaPixelId = metaPixelId;
+
   return prisma.company.update({
     where: { id: companyId },
-    data: {
-      ...updateData,
-      logo: logoPath,
-      metaPixelId: metaPixelId as string | undefined
-    }
+    data
   });
 };
 

@@ -5,6 +5,7 @@ import { roleRights } from '../config/roles';
 import { NextFunction, Request, Response } from 'express';
 import { User } from '@prisma/client';
 import { userService } from '../services';
+import prisma from '../client';
 
 const verifyCallback =
   (
@@ -23,8 +24,44 @@ const verifyCallback =
       const hasRequiredRights = requiredRights.every((requiredRight) =>
         userRights.includes(requiredRight)
       );
-      console.log(hasRequiredRights, req.params.userId, req.user.id);
-      if (!hasRequiredRights && req.params.userId != req.user.id) {
+
+      // Check if user is trying to delete themselves
+      if (req.params.userId == req.user.id) {
+        return reject(new ApiError(httpStatus.FORBIDDEN, 'You cannot delete yourself'));
+      }
+
+      // Check if user has required rights
+      if (!hasRequiredRights) {
+        // If user is trying to manage company users, check if they are a company admin with PLATINUM plan
+        if (requiredRights.includes('manageCompanyUsers')) {
+          const company = await prisma.company.findUnique({
+            where: { id: req.user.companyId || 0 },
+            include: { Plan: true }
+          });
+
+          if (!company || !company.Plan || company.Plan.planType !== 'PLATINUM') {
+            return reject(
+              new ApiError(
+                httpStatus.FORBIDDEN,
+                'User management is only available for PLATINUM plan subscribers'
+              )
+            );
+          }
+
+          // Check if the target user belongs to the same company
+          const targetUser = await prisma.user.findUnique({
+            where: { id: Number(req.params.userId) }
+          });
+
+          if (!targetUser || targetUser.companyId !== req.user.companyId) {
+            return reject(
+              new ApiError(httpStatus.FORBIDDEN, 'You can only manage users in your company')
+            );
+          }
+
+          return resolve();
+        }
+
         return reject(new ApiError(httpStatus.FORBIDDEN, 'Forbidden'));
       }
     }

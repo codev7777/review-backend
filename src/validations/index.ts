@@ -1,5 +1,7 @@
-export { default as authValidation } from './auth.validation';
-export { default as userValidation } from './user.validation';
-export { default as companyValidation } from './company.validation';
-export { default as categoryValidation } from './category.validation';
-export { default as reviewValidation } from './review.validation';
+import { companyValidation } from './company.validation';
+import userValidation from './user.validation';
+import authValidation from './auth.validation';
+import categoryValidation from './category.validation';
+import reviewValidation from './review.validation';
+
+export { companyValidation, userValidation, authValidation, categoryValidation, reviewValidation };

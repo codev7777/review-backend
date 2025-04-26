@@ -161,7 +161,77 @@ const sendResetPasswordEmail = async (to: string, token: string): Promise<void> 
   }
 };
 
+const sendInvitationEmail = async (
+  to: string,
+  tempPassword: string,
+  companyName: string
+): Promise<void> => {
+  const loginUrl = `${getFrontendUrl()}/auth/login`;
+
+  try {
+    await mailjet.post('send', { version: 'v3.1' }).request({
+      Messages: [
+        {
+          From: {
+            Email: 'noreply@reviewbrothers.com',
+            Name: 'Review Brothers'
+          },
+          To: [
+            {
+              Email: to,
+              Name: to.split('@')[0]
+            }
+          ],
+          Subject: `You've been invited to join ${companyName} on Review Brothers`,
+          HTMLPart: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <img src="https://i.ibb.co/zhx5Wy7K/11.png" alt="Review Brothers" style="max-width: 100%; height: auto; border-radius: 8px;" />
+            </div>
+            <h2 style="text-align: left; color: black;">Welcome to Review Brothers!</h2>
+            <p style="color: black;">
+              You've been invited to join ${companyName} on Review Brothers.
+              <br /><br />
+              Your temporary password is: <strong>${tempPassword}</strong>
+              <br /><br />
+              To get started:
+            </p>
+            <ol style="color: black;">
+              <li>Go to the login page: <a href="${loginUrl}">${loginUrl}</a></li>
+              <li>Log in with your email and the temporary password above</li>
+              <li>Set a new password when prompted</li>
+              <li>Complete your profile</li>
+            </ol>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${loginUrl}" 
+                style="display: inline-block; padding: 16px 36px; background-color: #232f3e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; transition: background-color 0.3s ease;"
+                onmouseover="this.style.backgroundColor='#f97316'"
+                onmouseout="this.style.backgroundColor='#232f3e'">
+                Log In Now
+              </a>
+            </div>
+            <p style="color: black;">
+              If you didn't expect this invitation, you can safely ignore this email.
+              <br /><br />
+              Need help? Contact us at <a href="mailto:info@reviewbrothers.com">info@reviewbrothers.com</a>
+            </p>
+            <p style="margin-top: 40px;">
+              Best Regards,<br />
+              <strong>Review Brothers Team</strong>
+            </p>
+          </div>
+          `
+        }
+      ]
+    });
+  } catch (error) {
+    console.error('Error sending invitation email:', error);
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to send invitation email');
+  }
+};
+
 export default {
   sendVerificationEmail,
-  sendResetPasswordEmail
+  sendResetPasswordEmail,
+  sendInvitationEmail
 };
