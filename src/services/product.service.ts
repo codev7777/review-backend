@@ -287,9 +287,44 @@ const deleteProductById = async (productId: number): Promise<void> => {
     throw new ApiError(httpStatus.NOT_FOUND, 'Product not found');
   }
 
+  // Check if there are any campaigns using this product
+  const campaignsUsingProduct = await prisma.campaign.findMany({
+    where: {
+      productIds: {
+        has: productId
+      }
+    },
+    select: {
+      id: true,
+      title: true,
+      isActive: true
+    }
+  });
+
+  if (campaignsUsingProduct.length > 0) {
+    const campaignDetails = campaignsUsingProduct
+      .map(
+        (campaign) =>
+          `Campaign "${campaign.title}" (ID: ${campaign.id}) - Status: ${
+            campaign.isActive ? 'Active' : 'Paused'
+          }`
+      )
+      .join('\n');
+
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `Cannot delete product because it is being used by the following campaigns:\n${campaignDetails}\n\nPlease either:\n1. Delete these campaigns first\n2. Update these campaigns to use different products`
+    );
+  }
+
   // Delete the product image if it exists
   if (product.image) {
-    deleteImage(product.image);
+    try {
+      deleteImage(product.image);
+    } catch (error) {
+      // Log the error but continue with deletion
+      console.error(`Failed to delete image ${product.image}:`, error);
+    }
   }
 
   await prisma.product.delete({

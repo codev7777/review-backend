@@ -14,6 +14,7 @@ const createPromotion = {
       .valid('GIFT_CARD', 'DISCOUNT_CODE', 'FREE_PRODUCT', 'DIGITAL_DOWNLOAD')
       .required(),
     description: Joi.string().required(),
+    isActive: Joi.string().valid('YES', 'NO').default('YES'),
 
     // Gift Card specific fields
     giftCardDeliveryMethod: Joi.when('promotionType', {
@@ -110,6 +111,7 @@ const updatePromotion = {
         'DIGITAL_DOWNLOAD'
       ),
       description: Joi.string(),
+      isActive: Joi.string().valid('YES', 'NO'),
 
       // Gift Card specific fields
       giftCardDeliveryMethod: Joi.when('promotionType', {
@@ -150,9 +152,12 @@ const updatePromotion = {
       // Digital Download specific fields
       downloadableFileUrl: Joi.when('promotionType', {
         is: 'DIGITAL_DOWNLOAD',
-        then: Joi.alternatives()
-          .try(Joi.string().uri(), Joi.string().pattern(/^data:application\/pdf;base64,/))
-          .required(),
+        then: Joi.alternatives().try(
+          Joi.string().uri(),
+          Joi.string().pattern(/^data:application\/pdf;base64,/),
+          Joi.string().allow(''),
+          Joi.allow(null)
+        ),
         otherwise: Joi.forbidden()
       }),
       digitalApprovalMethod: Joi.when('promotionType', {

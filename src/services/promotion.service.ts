@@ -116,7 +116,8 @@ const createPromotion = async (
     description: promotionBody.description,
     promotionType: promotionBody.promotionType,
     image: imageUrl,
-    companyId: promotionBody.companyId
+    companyId: promotionBody.companyId,
+    isActive: promotionBody.isActive || 'YES'
   };
 
   // Add type-specific fields
@@ -341,9 +342,40 @@ const deletePromotionById = async (promotionId: number): Promise<void> => {
     throw new ApiError(httpStatus.NOT_FOUND, 'Promotion not found');
   }
 
+  // Check if there are any campaigns using this promotion
+  const campaignsUsingPromotion = await prisma.campaign.findMany({
+    where: { promotionId },
+    select: {
+      id: true,
+      title: true,
+      isActive: true
+    }
+  });
+
+  if (campaignsUsingPromotion.length > 0) {
+    const campaignDetails = campaignsUsingPromotion
+      .map(
+        (campaign) =>
+          `Campaign "${campaign.title}" (ID: ${campaign.id}) - Status: ${
+            campaign.isActive ? 'Active' : 'Paused'
+          }`
+      )
+      .join('\n');
+
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `Cannot delete promotion because it is being used by the following campaigns:\n${campaignDetails}\n\nPlease either:\n1. Delete these campaigns first\n2. Update these campaigns to use a different promotion`
+    );
+  }
+
   // Delete the promotion image if it exists
   if (promotion.image) {
-    deleteImage(promotion.image);
+    try {
+      deleteImage(promotion.image);
+    } catch (error) {
+      // Log the error but continue with deletion
+      console.error(`Failed to delete image ${promotion.image}:`, error);
+    }
   }
 
   await prisma.promotion.delete({

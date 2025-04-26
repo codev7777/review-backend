@@ -108,6 +108,7 @@ const updateCampaign = {
         Joi.string()
       ),
       claims: Joi.number(),
+      companyId: Joi.number(),
       image: Joi.string()
         .pattern(/^data:image\/(jpeg|png|gif|webp);base64,/)
         .messages({
