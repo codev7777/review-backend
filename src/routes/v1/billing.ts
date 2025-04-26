@@ -690,4 +690,79 @@ router.post('/check-expired-subscriptions', async (req, res) => {
   }
 });
 
+// Get subscription details for a company
+router.get('/company/:companyId', async (req, res) => {
+  try {
+    const companyId = parseInt(req.params.companyId);
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Company ID is required'
+      });
+    }
+
+    // Get company with its active subscription
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      include: {
+        subscriptions: {
+          where: {
+            OR: [{ status: 'ACTIVE' }, { status: 'TRIALING' }]
+          },
+          include: {
+            plan: true
+          }
+        }
+      }
+    });
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        error: 'Company not found'
+      });
+    }
+
+    const subscription = company.subscriptions[0];
+
+    // If there's a subscription, get the trial end date from Stripe
+    let trialEnd = null;
+    if (subscription?.stripeSubscriptionId) {
+      try {
+        const stripeSubscription = await stripe.subscriptions.retrieve(
+          subscription.stripeSubscriptionId
+        );
+        if (stripeSubscription.trial_end) {
+          trialEnd = new Date(stripeSubscription.trial_end * 1000);
+        }
+      } catch (error) {
+        console.error('Error fetching Stripe subscription:', error);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        subscription: subscription
+          ? {
+              id: subscription.id,
+              status: subscription.status,
+              currentPeriodEnd: subscription.currentPeriodEnd,
+              cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+              plan: subscription.plan,
+              trialEnd: trialEnd
+            }
+          : null
+      }
+    });
+  } catch (error) {
+    console.error('[get-company-subscription error]', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get company subscription'
+    });
+  }
+});
+
 export default router;

@@ -28,7 +28,8 @@ const envVarsSchema = Joi.object()
     SMTP_PORT: Joi.number().description('port to connect to the email server'),
     SMTP_USERNAME: Joi.string().description('username for email server'),
     SMTP_PASSWORD: Joi.string().description('password for email server'),
-    EMAIL_FROM: Joi.string().description('the from field in the emails sent by the app')
+    EMAIL_FROM: Joi.string().description('the from field in the emails sent by the app'),
+    STRIPE_SECRET_KEY: Joi.string().required().description('Stripe secret key')
   })
   .unknown();
 
@@ -61,5 +62,8 @@ export default {
       }
     },
     from: envVars.EMAIL_FROM
+  },
+  stripe: {
+    secretKey: envVars.STRIPE_SECRET_KEY
   }
 };

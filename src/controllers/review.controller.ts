@@ -4,6 +4,9 @@ import ApiError from '../utils/ApiError';
 import { reviewService } from '../services/review.service';
 import { validateCreateReview, validateReviewUpdate } from '../validations/review.validation';
 import { Marketplace } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 // Map country codes to marketplace enum values
 const COUNTRY_TO_MARKETPLACE: { [key: string]: Marketplace } = {
@@ -66,8 +69,19 @@ const createReview = async (req: Request, res: Response) => {
 
     // Create the review with validated data
     const review = await reviewService.createReview(validatedData);
+
+    // Get the product to find the company ID
+    const product = await prisma.product.findUnique({
+      where: { id: review.productId },
+      select: { companyId: true }
+    });
+
+    if (!product) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Product not found');
+    }
+
     await reviewService.updateCampaignStatistics(parseInt(req.body.campaignId, 10));
-    await reviewService.updateCompanyStatistics(parseInt(req.body.campaignId, 10));
+    await reviewService.updateCompanyStatistics(product.companyId);
     res.status(httpStatus.CREATED).send(review);
   } catch (error) {
     console.error('Error creating review:', error);

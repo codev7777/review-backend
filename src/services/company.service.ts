@@ -57,29 +57,30 @@ const createCompany = async (companyBody: Prisma.CompanyCreateInput): Promise<Co
  * @param {number} [options.page] - Current page (default = 1)
  * @returns {Promise<QueryResult>}
  */
-const queryCompanies = async (
-  filter: object,
-  options: {
-    limit?: number;
-    page?: number;
-    sortBy?: string;
-    sortType?: 'asc' | 'desc';
-  }
-): Promise<{ companies: Company[]; totalCount: number }> => {
-  const page = options.page || 1;
-  const limit = options.limit || 10;
+const queryCompanies = async (filter: any, options: any) => {
+  const { sortBy, sortType, page, limit } = options;
   const skip = (page - 1) * limit;
-  const sortBy = options.sortBy;
-  const sortType = options.sortType || 'desc';
 
-  const where = { ...filter };
+  // Remove search from filter as it's not a valid Prisma field
+  const { search, ...where } = filter;
+
+  // If search is provided, add it to the where clause
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { websiteUrl: { contains: search, mode: 'insensitive' } },
+      { detail: { contains: search, mode: 'insensitive' } }
+    ];
+  }
 
   const [companies, totalCount] = await Promise.all([
     prisma.company.findMany({
       where,
       skip,
       take: limit,
-      orderBy: sortBy ? { [sortBy]: sortType } : undefined,
+      orderBy: {
+        [sortBy]: sortType
+      },
       include: {
         campaigns: true,
         Products: true
