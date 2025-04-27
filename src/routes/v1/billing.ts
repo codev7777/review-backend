@@ -765,4 +765,85 @@ router.get('/company/:companyId', async (req, res) => {
   }
 });
 
+// Check usage limits before downgrading
+router.post('/check-downgrade-limits', async (req, res) => {
+  try {
+    const { companyId, targetPlanId } = req.body;
+
+    if (!companyId || !targetPlanId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Company ID and target plan ID are required'
+      });
+    }
+
+    // Get current usage
+    const [productsCount, campaignsCount, promotionsCount, usersCount] = await Promise.all([
+      prisma.product.count({ where: { companyId } }),
+      prisma.campaign.count({ where: { companyId } }),
+      prisma.promotion.count({ where: { companyId } }),
+      prisma.user.count({ where: { companyId } })
+    ]);
+
+    // Get target plan limits
+    const targetPlan = await prisma.plan.findUnique({
+      where: { id: parseInt(targetPlanId) }
+    });
+
+    if (!targetPlan) {
+      return res.status(404).json({
+        success: false,
+        error: 'Target plan not found'
+      });
+    }
+
+    // Check limits based on plan
+    const limits = {
+      products: {
+        current: productsCount,
+        limit: targetPlan.planType === 'SILVER' ? 1 : targetPlan.planType === 'GOLD' ? 30 : Infinity,
+        exceeded: false
+      },
+      campaigns: {
+        current: campaignsCount,
+        limit: targetPlan.planType === 'SILVER' ? 1 : Infinity,
+        exceeded: false
+      },
+      promotions: {
+        current: promotionsCount,
+        limit: targetPlan.planType === 'SILVER' ? 1 : targetPlan.planType === 'GOLD' ? 10 : Infinity,
+        exceeded: false
+      },
+      users: {
+        current: usersCount,
+        limit: targetPlan.planType === 'PLATINUM' ? Infinity : 1,
+        exceeded: false
+      }
+    };
+
+    // Check if any limits are exceeded
+    limits.products.exceeded = limits.products.current > limits.products.limit;
+    limits.campaigns.exceeded = limits.campaigns.current > limits.campaigns.limit;
+    limits.promotions.exceeded = limits.promotions.current > limits.promotions.limit;
+    limits.users.exceeded = limits.users.current > limits.users.limit;
+
+    const hasExceededLimits = limits.products.exceeded || limits.campaigns.exceeded || limits.promotions.exceeded || limits.users.exceeded;
+
+    res.json({
+      success: true,
+      data: {
+        limits,
+        hasExceededLimits,
+        targetPlanType: targetPlan.planType
+      }
+    });
+  } catch (error) {
+    console.error('[check-downgrade-limits error]', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to check downgrade limits'
+    });
+  }
+});
+
 export default router;
