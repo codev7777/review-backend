@@ -243,7 +243,7 @@ router.post('/checkout-success', handleCheckoutSuccess);
 
 router.post('/create-checkout-session', async (req, res) => {
   try {
-    const { userId, priceId, success_url, cancel_url, isTrial } = req.body;
+    const { userId, priceId, success_url, cancel_url, isTrial, discountCode } = req.body;
 
     if (!userId || !priceId) {
       return res.status(400).json({
@@ -292,7 +292,44 @@ router.post('/create-checkout-session', async (req, res) => {
       }
     });
 
-    // 3. Create Stripe Checkout Session with trial period
+    // 3. If there's a discount code, validate it first
+    let discounts;
+    if (discountCode) {
+      // First check our database
+      const dbDiscount = await prisma.discountCode.findFirst({
+        where: {
+          code: discountCode,
+          isActive: true,
+          status: 'ACTIVE',
+          validFrom: {
+            lte: new Date()
+          },
+          OR: [
+            { validUntil: null },
+            { validUntil: { gt: new Date() } }
+          ]
+        }
+      });
+
+      if (dbDiscount) {
+        // If we have a valid code in our database, create a Stripe coupon
+        try {
+          const coupon = await stripe.coupons.create({
+            percent_off: dbDiscount.type === 'PERCENTAGE' ? dbDiscount.discount : undefined,
+            amount_off: dbDiscount.type === 'FIXED_AMOUNT' ? dbDiscount.discount * 100 : undefined,
+            currency: 'usd',
+            duration: 'once'
+          });
+
+          discounts = [{ coupon: coupon.id }];
+        } catch (error) {
+          console.error('Error creating Stripe coupon:', error);
+          // If we can't create a Stripe coupon, we'll proceed without the discount
+        }
+      }
+    }
+
+    // 4. Create Stripe Checkout Session with trial period and discount
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: 'subscription',
@@ -302,6 +339,7 @@ router.post('/create-checkout-session', async (req, res) => {
           quantity: 1
         }
       ],
+      discounts: discounts,
       subscription_data: {
         trial_period_days: isTrial && !hasUsedTrial ? 7 : undefined // 7-day trial if requested and not used before
       },
@@ -315,7 +353,7 @@ router.post('/create-checkout-session', async (req, res) => {
       }
     });
 
-    // 4. Send the session URL back to the frontend
+    // 5. Send the session URL back to the frontend
     res.json({ url: session.url });
   } catch (error) {
     console.error('[create-checkout-session error]', error);
@@ -842,6 +880,84 @@ router.post('/check-downgrade-limits', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to check downgrade limits'
+    });
+  }
+});
+
+// Add this new endpoint for validating discount codes
+router.post('/validate-discount-code', async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        error: 'Discount code is required'
+      });
+    }
+
+    // First check the database
+    const discountCode = await prisma.discountCode.findFirst({
+      where: {
+        code,
+        isActive: true,
+        status: 'ACTIVE',
+        validFrom: {
+          lte: new Date()
+        },
+        OR: [
+          { validUntil: null },
+          { validUntil: { gt: new Date() } }
+        ]
+      }
+    });
+
+    if (!discountCode) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired discount code'
+      });
+    }
+
+    // If we have a valid code in the database, try to apply it in Stripe
+    try {
+      // First try to retrieve as a promotion code
+      const promotionCode = await stripe.promotionCodes.retrieve(code);
+      console.log('Promotion code:', promotionCode);
+
+      if (!promotionCode || !promotionCode.active) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid or expired discount code'
+        });
+      }
+
+      // Get the coupon details
+      const coupon = await stripe.coupons.retrieve(promotionCode.coupon.id);
+      console.log('Coupon:', coupon);
+
+      // Return the promotion code details
+      res.json({
+        success: true,
+        code: promotionCode.code,
+        discount: coupon.percent_off || coupon.amount_off,
+        type: coupon.percent_off ? 'PERCENTAGE' : 'FIXED_AMOUNT'
+      });
+    } catch (stripeError: any) {
+      // If Stripe validation fails but we have a valid code in our DB,
+      // return the database discount code details
+      res.json({
+        success: true,
+        code: discountCode.code,
+        discount: discountCode.discount,
+        type: discountCode.type
+      });
+    }
+  } catch (error) {
+    console.error('[validate-discount-code error]', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to validate discount code'
     });
   }
 });
