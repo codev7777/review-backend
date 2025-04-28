@@ -89,7 +89,7 @@ const createReview = async (reviewBody: ReviewInput): Promise<Review> => {
         ratio: reviewBody.ratio
       }
     });
-
+    console.log('reviewBody', reviewBody);
     const review = await prismaClient.review.create({
       data: {
         email: reviewBody.email,
@@ -100,7 +100,7 @@ const createReview = async (reviewBody: ReviewInput): Promise<Review> => {
         marketplace: reviewBody.marketplace,
         orderNo: reviewBody.orderNo,
         promotionId: reviewBody.promotionId,
-        campaignId: product.Campaigns?.[0]?.id,
+        campaignId: reviewBody.campaignId,
         customerId: customer.id,
         status: ReviewStatus.PENDING
       },
@@ -353,8 +353,24 @@ const updateReviewStatus = async (
   try {
     const review = await prisma.review.update({
       where: { id: reviewId },
-      data: { status }
+      data: { status },
+      include: {
+        Product: {
+          select: {
+            companyId: true
+          }
+        },
+        Campaign: true
+      }
     });
+
+    // If review is being processed, update company and campaign statistics
+    if (status === 'PROCESSED' && review.Product?.companyId) {
+      await updateCompanyStatistics(review.Product.companyId);
+      if (review.Campaign) {
+        await updateCampaignStatistics(review.Campaign.id);
+      }
+    }
 
     return review;
   } catch (error) {
