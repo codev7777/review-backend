@@ -30,7 +30,8 @@ const COUNTRY_TO_MARKETPLACE: { [key: string]: Marketplace } = {
   ae: 'AE',
   pl: 'PL',
   eg: 'EG',
-  za: 'ZA'
+  za: 'ZA',
+  be: 'BE'
 };
 
 /**
@@ -93,16 +94,17 @@ const createReview = async (req: Request, res: Response) => {
 };
 
 /**
- * Get reviews for a company
+ * Get reviews for a company (paginated)
  * @param {Request} req
  * @param {Response} res
+ * @returns {Object} { reviews, total, totalPages, currentPage, hasNextPage, hasPrevPage, limit }
  */
 const getCompanyReviews = async (req: Request, res: Response) => {
   try {
     const { companyId } = req.params;
     const { status, page = 1, limit = 10, sortBy = 'feedbackDate', sortOrder = 'desc' } = req.query;
 
-    const reviews = await reviewService.getCompanyReviews(
+    const result = await reviewService.getCompanyReviews(
       Number(companyId),
       status as string,
       Number(page),
@@ -111,7 +113,8 @@ const getCompanyReviews = async (req: Request, res: Response) => {
       sortOrder as 'asc' | 'desc'
     );
 
-    res.json(reviews);
+    // result now contains: reviews, total, totalPages, currentPage, hasNextPage, hasPrevPage, limit
+    res.json(result);
   } catch (error) {
     console.error('Error getting company reviews:', error);
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to get reviews');

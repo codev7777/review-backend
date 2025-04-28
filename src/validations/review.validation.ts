@@ -4,7 +4,7 @@ import { Marketplace } from '@prisma/client';
 const createReviewSchema = Joi.object().keys({
   email: Joi.string().required().email(),
   name: Joi.string().required(),
-  productId: Joi.number().integer().required(),
+  asin: Joi.string().required(),
   ratio: Joi.number().min(1).max(5).required(),
   feedback: Joi.string().required().min(10),
   marketplace: Joi.string()
@@ -12,7 +12,8 @@ const createReviewSchema = Joi.object().keys({
     .valid(...Object.values(Marketplace)),
   orderNo: Joi.string(),
   promotionId: Joi.number().integer(),
-  campaignId: Joi.number().integer()
+  campaignId: Joi.number().integer(),
+  isSeller: Joi.boolean()
 });
 
 export const validateCreateReview = (data: any) => {

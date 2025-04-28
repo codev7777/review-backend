@@ -21,6 +21,13 @@ router
     userController.deleteUser
   );
 
+router.patch(
+  '/me/password',
+  auth(),
+  validate(userValidation.updateCurrentUserPassword),
+  userController.updateCurrentUserPassword
+);
+
 export default router;
 
 /**

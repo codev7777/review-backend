@@ -33,7 +33,8 @@ const createCampaign = {
             'AE',
             'PL',
             'EG',
-            'ZA'
+            'ZA',
+            'BE'
           )
         )
         .required(),
@@ -102,7 +103,8 @@ const updateCampaign = {
             'AE',
             'PL',
             'EG',
-            'ZA'
+            'ZA',
+            'BE'
           )
         ),
         Joi.string()

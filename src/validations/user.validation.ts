@@ -46,10 +46,17 @@ const deleteUser = {
   })
 };
 
+const updateCurrentUserPassword = {
+  body: Joi.object().keys({
+    password: Joi.string().required().custom(password)
+  })
+};
+
 export default {
   createUser,
   getUsers,
   getUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  updateCurrentUserPassword
 };

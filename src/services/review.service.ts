@@ -6,6 +6,7 @@ import { PrismaClient, CampaignStatus, ReviewStatus } from '@prisma/client';
 import { sendDigitalDownloadEmail, sendCouponCodeEmail } from './mail.service';
 
 const prismaClient = new PrismaClient();
+const SELLER_PROFILE_ASIN = 'SELLER-PROFILE';
 
 /**
  * Create a customer or update if exists
@@ -52,7 +53,18 @@ const createOrUpdateCustomer = async (customerData: {
   }
 };
 
-type ReviewInput = Omit<Prisma.ReviewUncheckedCreateInput, 'id' | 'customerId' | 'feedbackDate'>;
+type ReviewInput = {
+  email: string;
+  name: string;
+  asin: string;
+  ratio: number;
+  feedback: string;
+  marketplace: string;
+  orderNo?: string;
+  promotionId?: number;
+  campaignId?: number;
+  isSeller?: boolean;
+};
 
 /**
  * Create a review
@@ -61,20 +73,148 @@ type ReviewInput = Omit<Prisma.ReviewUncheckedCreateInput, 'id' | 'customerId' |
  */
 const createReview = async (reviewBody: ReviewInput): Promise<Review> => {
   try {
-    const product = await prismaClient.product.findUnique({
-      where: { id: reviewBody.productId },
-      include: {
-        Campaigns: {
-          where: { isActive: CampaignStatus.YES },
-          select: { id: true }
+    let product;
+    console.log('Starting review creation with body:', { ...reviewBody, email: '***' });
+    
+    if (reviewBody.isSeller) {
+      console.log('Creating seller review...');
+      // For seller reviews, find the company's seller profile product
+      product = await prismaClient.product.findFirst({
+        where: {
+          Campaigns: {
+            some: {
+              id: reviewBody.campaignId,
+              isActive: CampaignStatus.YES
+            }
+          },
+          asin: SELLER_PROFILE_ASIN
+        },
+        include: {
+          Campaigns: {
+            where: { isActive: CampaignStatus.YES },
+            select: { id: true }
+          }
+        }
+      });
+
+      console.log('Existing seller profile product:', product);
+
+      if (!product) {
+        console.log('No existing seller profile product found, creating new one...');
+        // Create a seller profile product if it doesn't exist
+        const campaign = await prismaClient.campaign.findUnique({
+          where: { id: reviewBody.campaignId },
+          select: { companyId: true }
+        });
+
+        console.log('Found campaign:', campaign);
+
+        if (!campaign) {
+          throw new ApiError(httpStatus.NOT_FOUND, 'Campaign not found');
+        }
+
+        try {
+          // First try to find the global seller profile product
+          product = await prismaClient.product.findUnique({
+            where: {
+              asin: SELLER_PROFILE_ASIN
+            }
+          });
+
+          if (!product) {
+            // If no existing seller profile, create a new one
+            const productData = {
+              title: 'Seller REVIEW',
+              description: 'Global Seller Profile for Reviews',
+              image: '/images/seller-profile.png',
+              asin: SELLER_PROFILE_ASIN,
+              companyId: campaign.companyId
+            } as Prisma.ProductUncheckedCreateInput;
+
+            console.log('Creating new seller profile product with data:', productData);
+            product = await prismaClient.product.create({
+              data: productData,
+              include: {
+                Campaigns: {
+                  where: { isActive: CampaignStatus.YES },
+                  select: { id: true }
+                }
+              }
+            });
+            console.log('Successfully created seller profile product:', product);
+          } else {
+            console.log('Found existing global seller profile product:', product);
+          }
+        } catch (error) {
+          console.error('Error creating/finding seller profile product:', error);
+          throw error;
+        }
+
+        console.log('Linking product to campaign...');
+        try {
+          // Link the product to the campaign if not already linked
+          await prismaClient.campaign.update({
+            where: { id: reviewBody.campaignId },
+            data: {
+              products: {
+                connect: { id: product.id }
+              }
+            }
+          });
+          console.log('Successfully linked product to campaign');
+        } catch (error) {
+          console.error('Error linking product to campaign:', error);
+          throw error;
         }
       }
-    });
-
-    if (!product) {
-      throw new Error('Product not found');
+    } else {
+      console.log('Creating regular product review...');
+      // For regular product reviews, find by ASIN
+      product = await prismaClient.product.findUnique({
+        where: { asin: reviewBody.asin },
+        include: {
+          Campaigns: {
+            where: { isActive: CampaignStatus.YES },
+            select: { id: true }
+          }
+        }
+      });
     }
 
+    if (!product) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Product not found with the given ASIN');
+    }
+
+    console.log('Found product:', { ...product, description: '***' });
+
+    // If campaignId is provided, verify the product belongs to the campaign
+    if (reviewBody.campaignId) {
+      console.log('Verifying campaign...');
+      const campaign = await prismaClient.campaign.findUnique({
+        where: { id: reviewBody.campaignId },
+        include: {
+          products: {
+            where: { id: product.id },
+            select: { id: true }
+          }
+        }
+      });
+
+      if (!campaign) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Campaign not found');
+      }
+
+      if (campaign.isActive !== CampaignStatus.YES) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Campaign is not active');
+      }
+
+      if (campaign.products.length === 0) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'This product is not part of the specified campaign');
+      }
+      console.log('Campaign verification successful');
+    }
+    
+    console.log('Creating or updating customer...');
     // Create or update customer
     const customer = await prismaClient.customer.upsert({
       where: { email: reviewBody.email },
@@ -89,12 +229,15 @@ const createReview = async (reviewBody: ReviewInput): Promise<Review> => {
         ratio: reviewBody.ratio
       }
     });
-    console.log('reviewBody', reviewBody);
+    console.log('Customer created/updated:', { ...customer, email: '***' });
+
+    console.log('Creating review...');
+    // Create the review using the found product's ID
     const review = await prismaClient.review.create({
       data: {
         email: reviewBody.email,
         name: reviewBody.name,
-        productId: reviewBody.productId,
+        productId: product.id,
         ratio: reviewBody.ratio,
         feedback: reviewBody.feedback,
         marketplace: reviewBody.marketplace,
@@ -108,23 +251,14 @@ const createReview = async (reviewBody: ReviewInput): Promise<Review> => {
         Promotion: true
       }
     });
-    console.log(
-      review.Promotion?.promotionType,
-      review.Promotion?.digitalApprovalMethod,
-      review.Promotion?.downloadableFileUrl
-    );
-    // If this is a digital download promotion with automatic approval, send the PDF
+    console.log('Review created successfully:', { ...review, email: '***', feedback: '***' });
+
+    // Handle digital download promotions
     if (
       review.Promotion?.promotionType === 'DIGITAL_DOWNLOAD' &&
       review.Promotion.digitalApprovalMethod === 'AUTOMATIC' &&
       review.Promotion.downloadableFileUrl
     ) {
-      console.log('Attempting to send digital download email for review:', {
-        reviewId: review.id,
-        email: review.email,
-        promotion: review.Promotion
-      });
-
       try {
         await sendDigitalDownloadEmail(
           review.email,
@@ -133,67 +267,31 @@ const createReview = async (reviewBody: ReviewInput): Promise<Review> => {
           review.Promotion.downloadableFileUrl
         );
 
-        console.log('Digital download email sent successfully for review:', review.id);
-
-        // Update review status to processed
         await prismaClient.review.update({
           where: { id: review.id },
           data: { status: ReviewStatus.PROCESSED }
         });
       } catch (error) {
         console.error('Error sending digital download email for review:', review.id, error);
-        // Don't throw the error, just log it
       }
     }
-    console.log(
-      'review.Promotion?.promotionType',
-      review.Promotion?.promotionType,
-      'review.Promotion?.approvalMethod',
-      review.Promotion?.approvalMethod,
-      'review.Promotion?.couponCodes',
-      review.Promotion?.couponCodes,
-      'review.Promotion?.couponCodes.length',
-      review.Promotion?.couponCodes?.length
-    );
-    // If this is a coupon code promotion with automatic approval, send the coupon
+
+    // Handle discount code promotions
     if (
       review.Promotion?.promotionType === 'DISCOUNT_CODE' &&
       review.Promotion.approvalMethod === 'AUTOMATIC' &&
       review.Promotion.couponCodes &&
       review.Promotion.couponCodes.length > 0
     ) {
-      console.log('Found eligible discount code promotion:', {
-        reviewId: review.id,
-        promotionId: review.Promotion.id,
-        promotionType: review.Promotion.promotionType,
-        approvalMethod: review.Promotion.approvalMethod,
-        availableCodes: review.Promotion.couponCodes.length,
-        codeType: review.Promotion.codeType
-      });
-
       try {
-        // Get the first available coupon code
         const couponCode = review.Promotion.couponCodes[0];
-        console.log('Selected coupon code:', couponCode);
-
-        console.log('Attempting to send coupon code email to:', {
-          email: review.email,
-          name: review.name,
-          promotionTitle: review.Promotion.title
-        });
-
         await sendCouponCodeEmail(review.email, review.name, review.Promotion.title, couponCode);
 
-        console.log('Coupon code email sent successfully for review:', review.id);
-
-        // Update review status to processed
         await prismaClient.review.update({
           where: { id: review.id },
           data: { status: ReviewStatus.PROCESSED }
         });
-        console.log('Review status updated to PROCESSED');
 
-        // If it's a single-use code, remove it from the available codes
         if (review.Promotion.codeType === 'SINGLE_USE') {
           const updatedCodes = review.Promotion.couponCodes.filter((code) => code !== couponCode);
           await prismaClient.promotion.update({
@@ -204,28 +302,21 @@ const createReview = async (reviewBody: ReviewInput): Promise<Review> => {
               }
             }
           });
-          console.log('Single-use code removed. Remaining codes:', updatedCodes.length);
         }
-      } catch (error: unknown) {
+      } catch (error) {
         console.error('Error in coupon code email process:', {
           reviewId: review.id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined
+          error: error instanceof Error ? error.message : 'Unknown error'
         });
-        // Don't throw the error, just log it
       }
-    } else {
-      console.log('Review not eligible for automatic coupon code:', {
-        reviewId: review.id,
-        promotionType: review.Promotion?.promotionType,
-        approvalMethod: review.Promotion?.approvalMethod,
-        hasCouponCodes: Boolean(review.Promotion?.couponCodes?.length)
-      });
     }
 
     return review;
   } catch (error) {
-    throw error;
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Error creating review');
   }
 };
 
@@ -237,7 +328,7 @@ const createReview = async (reviewBody: ReviewInput): Promise<Review> => {
  * @param {number} limit
  * @param {string} sortBy
  * @param {string} sortOrder
- * @returns {Promise<{ reviews: Review[]; total: number }>}
+ * @returns {Promise<{ reviews: Review[]; total: number; totalPages: number; currentPage: number; hasNextPage: boolean; hasPrevPage: boolean; limit: number }>}
  */
 const getCompanyReviews = async (
   companyId: number,
@@ -246,7 +337,15 @@ const getCompanyReviews = async (
   limit: number = 10,
   sortBy: string = 'feedbackDate',
   sortOrder: 'asc' | 'desc' = 'desc'
-): Promise<{ reviews: Review[]; total: number }> => {
+): Promise<{
+  reviews: Review[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  limit: number;
+}> => {
   try {
     const where: Prisma.ReviewWhereInput = {
       Product: {
@@ -333,7 +432,19 @@ const getCompanyReviews = async (
       });
     }
 
-    return { reviews, total };
+    const totalPages = Math.ceil(total / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    return {
+      reviews,
+      total,
+      totalPages,
+      currentPage: page,
+      hasNextPage,
+      hasPrevPage,
+      limit
+    };
   } catch (error) {
     console.error('Error getting company reviews:', error);
     throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to get reviews');

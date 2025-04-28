@@ -4,6 +4,7 @@ import ApiError from '../utils/ApiError';
 import catchAsync from '../utils/catchAsync';
 import { userService } from '../services';
 import { User } from '@prisma/client';
+import { encryptPassword } from '../utils/encryption';
 
 const createUser = catchAsync(async (req, res) => {
   const { email, password, name, role } = req.body;
@@ -47,10 +48,22 @@ const deleteUser = catchAsync(async (req, res) => {
   res.status(httpStatus.NO_CONTENT).send();
 });
 
+const updateCurrentUserPassword = catchAsync(async (req, res) => {
+  const user = req.user as User;
+  if (!user) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, 'Please authenticate');
+  }
+
+  const encryptedPassword = await encryptPassword(req.body.password);
+  await userService.updateUserById(user.id, { password: encryptedPassword });
+  res.status(httpStatus.NO_CONTENT).send();
+});
+
 export default {
   createUser,
   getUsers,
   getUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  updateCurrentUserPassword
 };

@@ -65,14 +65,14 @@ model Category {
 model Product {
   id          Int        @id @default(autoincrement())
   title       String
-  description String
+  description String?
   image       String
   asin        String?    @unique
   company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId   Int
   ratio       Float      @default(0)
-  categoryId  Int
-  category    Category   @relation(fields: [categoryId], references: [id])
+  categoryId  Int?
+  category    Category?   @relation(fields: [categoryId], references: [id])
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   Reviews     Review[]
@@ -198,6 +198,7 @@ enum Marketplace {
   PL
   EG
   ZA
+  BE
 }
 
 enum PlanType {
