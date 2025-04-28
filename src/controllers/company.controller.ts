@@ -57,6 +57,7 @@ const getCompanyUsers = catchAsync(async (req: Request, res: Response) => {
 const inviteUser = catchAsync(async (req: Request, res: Response) => {
   const companyId = Number(req.params.companyId);
   const { email } = req.body;
+  const requestingUser = req.user as any;
 
   // Get company and its plan
   const company = await prisma.company.findUnique({
@@ -67,6 +68,15 @@ const inviteUser = catchAsync(async (req: Request, res: Response) => {
       Plan: {
         select: {
           planType: true
+        }
+      },
+      Users: {
+        orderBy: {
+          createdAt: 'asc'
+        },
+        take: 1,
+        select: {
+          id: true
         }
       }
     }
@@ -81,6 +91,14 @@ const inviteUser = catchAsync(async (req: Request, res: Response) => {
     throw new ApiError(
       httpStatus.FORBIDDEN,
       'User invitation is only available for PLATINUM plan subscribers'
+    );
+  }
+
+  // Check if requesting user is the first member of the company
+  if (!company.Users[0] || company.Users[0].id !== requestingUser.id) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      'Only the company owner can manage users'
     );
   }
 
@@ -123,6 +141,43 @@ const inviteUser = catchAsync(async (req: Request, res: Response) => {
 const removeUser = catchAsync(async (req: Request, res: Response) => {
   const companyId = Number(req.params.companyId);
   const userId = Number(req.params.userId);
+  const requestingUser = req.user as any;
+
+  // Prevent users from deleting their own account
+  if (userId === requestingUser.id) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      'You cannot delete your own account'
+    );
+  }
+
+  // Get company with its first user
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    include: {
+      Users: {
+        orderBy: {
+          createdAt: 'asc'
+        },
+        take: 1,
+        select: {
+          id: true
+        }
+      }
+    }
+  });
+
+  if (!company) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Company not found');
+  }
+
+  // Check if requesting user is the first member of the company
+  if (!company.Users[0] || company.Users[0].id !== requestingUser.id) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      'Only the company owner can manage users'
+    );
+  }
 
   // Check if user belongs to the company
   const user = await prisma.user.findFirst({
@@ -141,6 +196,14 @@ const removeUser = catchAsync(async (req: Request, res: Response) => {
 
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found in company');
+  }
+
+  // Prevent removing the company owner
+  if (user.id === company.Users[0].id) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      'Cannot remove the company owner'
+    );
   }
 
   // Check if user has active subscriptions
