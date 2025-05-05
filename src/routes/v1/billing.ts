@@ -962,4 +962,51 @@ router.post('/validate-discount-code', async (req, res) => {
   }
 });
 
+router.post('/get-subscription-status', async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
+
+    // Find the last subscription where current date is smaller than currentPeriodEnd and userId matches
+    const subscription = await prisma.subscription.findFirst({
+      where: {
+        userId: parseInt(userId),
+        currentPeriodEnd: {
+          gt: new Date()
+        }
+      },
+      orderBy: {
+        currentPeriodEnd: 'desc'
+      }
+    });
+
+    if (!subscription) {
+      return res.json({
+        success: true,
+        status: false
+      });
+    }
+
+    // Check the status of the subscription
+    const isActive = subscription.status !== 'CANCELED';
+
+    res.json({
+      success: true,
+      status: isActive
+    });
+  } catch (error) {
+    console.error('[get-subscription-status error]', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get subscription status'
+    });
+  }
+});
+
 export default router;
