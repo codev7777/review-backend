@@ -11,7 +11,7 @@ const createPromotion = {
           'Image must be a valid base64 encoded image (JPEG, PNG, GIF, or WebP)'
       }),
     promotionType: Joi.string()
-      .valid('GIFT_CARD', 'DISCOUNT_CODE', 'FREE_PRODUCT', 'DIGITAL_DOWNLOAD')
+      .valid('NONE', 'GIFT_CARD', 'DISCOUNT_CODE', 'FREE_PRODUCT', 'DIGITAL_DOWNLOAD')
       .required(),
     description: Joi.string().required(),
     isActive: Joi.string().valid('YES', 'NO').default('YES'),
@@ -72,6 +72,7 @@ const getPromotions = {
   query: Joi.object().keys({
     title: Joi.string(),
     promotionType: Joi.string().valid(
+      'NONE',
       'GIFT_CARD',
       'DISCOUNT_CODE',
       'FREE_PRODUCT',
@@ -105,6 +106,7 @@ const updatePromotion = {
             'Image must be a valid base64 encoded image (JPEG, PNG, GIF, or WebP)'
         }),
       promotionType: Joi.string().valid(
+        'NONE',
         'GIFT_CARD',
         'DISCOUNT_CODE',
         'FREE_PRODUCT',

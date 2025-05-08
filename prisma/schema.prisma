@@ -208,6 +208,7 @@ enum PlanType {
 }
 
 enum PromotionType {
+  NONE
   GIFT_CARD
   DISCOUNT_CODE
   FREE_PRODUCT

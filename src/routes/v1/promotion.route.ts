@@ -12,6 +12,14 @@ router
   .get(auth(), validate(promotionValidation.getPromotions), promotionController.getPromotions);
 
 router
+  .route('/user')
+  .get(
+    auth(),
+    validate(promotionValidation.getPromotions),
+    promotionController.getPromotionByUserId
+  );
+
+router
   .route('/:promotionId')
   .get(auth(), validate(promotionValidation.getPromotion), promotionController.getPromotion)
   .patch(auth(), validate(promotionValidation.updatePromotion), promotionController.updatePromotion)
