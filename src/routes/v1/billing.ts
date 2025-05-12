@@ -962,9 +962,9 @@ router.post('/validate-discount-code', async (req, res) => {
   }
 });
 
-router.post('/get-subscription-status', async (req, res) => {
+router.post('/get-review-status', async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { userId, campaignId } = req.body;
 
     if (!userId) {
       return res.status(400).json({
@@ -985,7 +985,6 @@ router.post('/get-subscription-status', async (req, res) => {
         currentPeriodEnd: 'desc'
       }
     });
-
     if (!subscription) {
       return res.json({
         success: true,
@@ -993,12 +992,29 @@ router.post('/get-subscription-status', async (req, res) => {
       });
     }
 
+    const campaign = await prisma.campaign.findFirst({
+      where: {
+        companyId: parseInt(campaignId),
+      }
+    });
+    if (!campaign) {
+      return res.json({
+        success: true,
+        status: false
+      });
+    }
+
+    // Check the status of the campaign
+    const isCampaignActive = campaign.isActive === 'YES' ? true : false;
     // Check the status of the subscription
-    const isActive = subscription.status !== 'CANCELED';
+    const isSubscriptionActive = subscription.status !== 'CANCELED' ? true : false;
+
+    console.log('isCampaignActive', isCampaignActive);
+    console.log('isSubscriptionActive', isSubscriptionActive);
 
     res.json({
       success: true,
-      status: isActive
+      status: !isCampaignActive || !isSubscriptionActive ? false : true
     });
   } catch (error) {
     console.error('[get-subscription-status error]', error);
