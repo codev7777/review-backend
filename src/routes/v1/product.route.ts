@@ -2,6 +2,7 @@ import express from 'express';
 import productController from '../../controllers/product.controller';
 import validate from '../../middlewares/validate';
 import productValidation from '../../validations/product.validation';
+import auth from '../../middlewares/auth';
 import multer from 'multer';
 
 const router = express.Router();
@@ -17,22 +18,22 @@ const upload = multer({
 router
   .route('/')
   .post(
-    validate(productValidation.createProduct),
+    auth(),
     upload.single('image'),
     validate(productValidation.createProduct),
     productController.createProduct
   )
-  .get(validate(productValidation.getProduct), productController.getProducts);
+  .get(auth(), productController.getProducts);
 
 router
   .route('/:productId')
-  .get(validate(productValidation.getProduct), productController.getProduct)
+  .get(auth(), validate(productValidation.getProduct), productController.getProduct)
   .patch(
-    validate(productValidation.getProduct),
+    auth(),
     upload.single('image'),
     validate(productValidation.updateProduct),
     productController.updateProduct
   )
-  .delete(validate(productValidation.deleteProduct), productController.deleteProduct);
+  .delete(auth(), validate(productValidation.deleteProduct), productController.deleteProduct);
 
 export default router;
