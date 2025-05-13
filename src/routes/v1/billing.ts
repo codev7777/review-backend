@@ -964,19 +964,24 @@ router.post('/validate-discount-code', async (req, res) => {
 
 router.post('/get-review-status', async (req, res) => {
   try {
-    const { userId, campaignId } = req.body;
+    const { campaignId } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        error: 'User ID is required'
+    const campaign = await prisma.campaign.findFirst({
+      where: {
+        id: parseInt(campaignId)
+      }
+    });
+    if (!campaign) {
+      return res.json({
+        success: true,
+        status: false
       });
     }
 
     // Find the last subscription where current date is smaller than currentPeriodEnd and userId matches
     const subscription = await prisma.subscription.findFirst({
       where: {
-        userId: parseInt(userId),
+        companyId: campaign.companyId,
         currentPeriodEnd: {
           gt: new Date()
         }
@@ -986,18 +991,6 @@ router.post('/get-review-status', async (req, res) => {
       }
     });
     if (!subscription) {
-      return res.json({
-        success: true,
-        status: false
-      });
-    }
-
-    const campaign = await prisma.campaign.findFirst({
-      where: {
-        companyId: parseInt(campaignId),
-      }
-    });
-    if (!campaign) {
       return res.json({
         success: true,
         status: false
