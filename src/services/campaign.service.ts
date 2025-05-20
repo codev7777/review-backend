@@ -150,10 +150,10 @@ const createCampaign = async (campaignBody: any): Promise<any> => {
   }
 
   // Handle image upload
-  let imageUrl = campaignBody.image;
-  if (campaignBody.image && campaignBody.image.startsWith('data:image')) {
-    imageUrl = saveCampaignImage(campaignBody.image);
-  }
+  // let imageUrl = campaignBody.image;
+  // if (campaignBody.image && campaignBody.image.startsWith('data:image')) {
+  //   imageUrl = saveCampaignImage(campaignBody.image);
+  // }
 
   const { ...rest } = campaignBody;
 
@@ -161,7 +161,7 @@ const createCampaign = async (campaignBody: any): Promise<any> => {
     const result = await prisma.campaign.create({
       data: {
         ...rest,
-        image: imageUrl,
+        // image: imageUrl,
         productIds: productIds,
         marketplaces: marketplaces,
         products: {
