@@ -304,10 +304,7 @@ router.post('/create-checkout-session', async (req, res) => {
           validFrom: {
             lte: new Date()
           },
-          OR: [
-            { validUntil: null },
-            { validUntil: { gt: new Date() } }
-          ]
+          OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }]
         }
       });
 
@@ -391,7 +388,7 @@ router.post('/cancel-subscription', async (req, res) => {
     }
 
     // Cancel the subscription in Stripe
-    if (subscription.stripeSubscriptionId) {
+    if (subscription.stripeSubscriptionId && subscription.stripeSubscriptionId.includes('sub_')) {
       await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
         cancel_at_period_end: true
       });
@@ -839,7 +836,8 @@ router.post('/check-downgrade-limits', async (req, res) => {
     const limits = {
       products: {
         current: productsCount,
-        limit: targetPlan.planType === 'SILVER' ? 1 : targetPlan.planType === 'GOLD' ? 30 : Infinity,
+        limit:
+          targetPlan.planType === 'SILVER' ? 1 : targetPlan.planType === 'GOLD' ? 30 : Infinity,
         exceeded: false
       },
       campaigns: {
@@ -849,7 +847,8 @@ router.post('/check-downgrade-limits', async (req, res) => {
       },
       promotions: {
         current: promotionsCount,
-        limit: targetPlan.planType === 'SILVER' ? 1 : targetPlan.planType === 'GOLD' ? 10 : Infinity,
+        limit:
+          targetPlan.planType === 'SILVER' ? 1 : targetPlan.planType === 'GOLD' ? 10 : Infinity,
         exceeded: false
       },
       users: {
@@ -865,7 +864,11 @@ router.post('/check-downgrade-limits', async (req, res) => {
     limits.promotions.exceeded = limits.promotions.current > limits.promotions.limit;
     limits.users.exceeded = limits.users.current > limits.users.limit;
 
-    const hasExceededLimits = limits.products.exceeded || limits.campaigns.exceeded || limits.promotions.exceeded || limits.users.exceeded;
+    const hasExceededLimits =
+      limits.products.exceeded ||
+      limits.campaigns.exceeded ||
+      limits.promotions.exceeded ||
+      limits.users.exceeded;
 
     res.json({
       success: true,
@@ -905,10 +908,7 @@ router.post('/validate-discount-code', async (req, res) => {
         validFrom: {
           lte: new Date()
         },
-        OR: [
-          { validUntil: null },
-          { validUntil: { gt: new Date() } }
-        ]
+        OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }]
       }
     });
 
@@ -1014,6 +1014,117 @@ router.post('/get-review-status', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to get subscription status'
+    });
+  }
+});
+
+router.post('/create-paypal-subscription', async (req, res) => {
+  try {
+    const { details, isTrial, planId, user, annual } = req.body;
+
+    if (!details || !planId || !user || !user.companyId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields.'
+      });
+    }
+
+    // 1. Get the plan by planType (e.g., 'GOLD', 'SILVER', 'PLATINUM')
+    const plan = await prisma.plan.findFirst({
+      where: { planType: planId.toUpperCase() }
+    });
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'Plan not found.'
+      });
+    }
+
+    // 2. Calculate currentPeriodEnd
+    const currentPeriodEnd = (() => {
+      const now = new Date();
+      if (isTrial) {
+        now.setDate(now.getDate() + 7);
+      } else {
+        if (annual) {
+          now.setFullYear(now.getFullYear() + 1);
+        } else {
+          now.setMonth(now.getMonth() + 1);
+        }
+      }
+      return now;
+    })();
+
+    // 3. Get PayPal IDs
+    const paypalOrderId = details.id;
+    const paypalCaptureId = details?.purchase_units?.[0]?.payments?.captures?.[0]?.id || null;
+
+    // 4. Check for existing subscription for this company
+    let subscription: any = await prisma.subscription.findFirst({
+      where: { companyId: user.companyId },
+      orderBy: { createdAt: 'desc' },
+      include: { plan: true }
+    });
+
+    const status = isTrial ? SubscriptionStatus.TRIALING : SubscriptionStatus.ACTIVE;
+    const subscriptionData = {
+      status,
+      currentPeriodEnd,
+      cancelAtPeriodEnd: false,
+      company: { connect: { id: user.companyId } },
+      user: { connect: { id: user.id } },
+      plan: { connect: { id: plan.id } },
+      stripeSubscriptionId: paypalCaptureId || paypalOrderId // Use captureId if available, else orderId
+    };
+
+    if (subscription) {
+      // Update existing subscription
+      subscription = await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: subscriptionData,
+        include: { plan: true }
+      });
+    } else {
+      // Create new subscription
+      subscription = await prisma.subscription.create({
+        data: subscriptionData,
+        include: { plan: true }
+      });
+    }
+
+    if (!subscription) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create or update subscription.'
+      });
+    }
+
+    // Ensure user's stripeSubscriptionId is updated to match the subscription
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        stripeSubscriptionId: subscription.stripeSubscriptionId,
+        currentPeriodEnd: subscription.currentPeriodEnd
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'PayPal subscription processed successfully',
+      subscription: {
+        id: subscription.id,
+        planId: subscription.planId,
+        status: subscription.status,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+        isTrial: status === SubscriptionStatus.TRIALING,
+        ...(subscription.plan ? { plan: subscription.plan } : {})
+      }
+    });
+  } catch (error) {
+    console.error('[create-paypal-subscription error]', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get paypal subscription'
     });
   }
 });
