@@ -403,6 +403,17 @@ router.post('/cancel-subscription', async (req, res) => {
       }
     });
 
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) }
+    });
+
+    if (user && user.companyId !== null) {
+      await prisma.company.update({
+        where: { id: user.companyId },
+        data: { planId: null }
+      });
+    }
+
     res.json({
       success: true,
       message: 'Subscription will be cancelled at the end of the billing period'
@@ -1106,6 +1117,12 @@ router.post('/create-paypal-subscription', async (req, res) => {
         stripeSubscriptionId: subscription.stripeSubscriptionId,
         currentPeriodEnd: subscription.currentPeriodEnd
       }
+    });
+
+    // Update the company's planId
+    await prisma.company.update({
+      where: { id: user.companyId },
+      data: { planId: plan.id }
     });
 
     res.json({
