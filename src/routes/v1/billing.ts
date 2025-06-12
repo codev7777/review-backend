@@ -1033,7 +1033,7 @@ router.post('/create-paypal-subscription', async (req, res) => {
   try {
     const { details, isTrial, planId, user, annual } = req.body;
 
-    if (!details || !planId || !user || !user.companyId) {
+    if (!planId || !user || !user.companyId) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields.'
@@ -1067,8 +1067,10 @@ router.post('/create-paypal-subscription', async (req, res) => {
     })();
 
     // 3. Get PayPal IDs
-    const paypalOrderId = details.id;
-    const paypalCaptureId = details?.purchase_units?.[0]?.payments?.captures?.[0]?.id || null;
+    const paypalOrderId = isTrial ? null : details.id;
+    const paypalCaptureId = isTrial
+      ? null
+      : details?.purchase_units?.[0]?.payments?.captures?.[0]?.id || null;
 
     // 4. Check for existing subscription for this company
     let subscription: any = await prisma.subscription.findFirst({
@@ -1085,7 +1087,7 @@ router.post('/create-paypal-subscription', async (req, res) => {
       company: { connect: { id: user.companyId } },
       user: { connect: { id: user.id } },
       plan: { connect: { id: plan.id } },
-      stripeSubscriptionId: paypalCaptureId || paypalOrderId // Use captureId if available, else orderId
+      stripeSubscriptionId: paypalCaptureId || paypalOrderId || undefined
     };
 
     if (subscription) {
